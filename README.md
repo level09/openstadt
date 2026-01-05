@@ -1,6 +1,6 @@
 # OpenStadt
 
-**Open Source Civic Infrastructure Equity Analyzer for German Cities**
+**Open-source infrastructure equity platform for German cities — map, analyze, and compare public facilities across neighborhoods**
 
 ## What is OpenStadt?
 
