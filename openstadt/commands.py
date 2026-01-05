@@ -422,3 +422,205 @@ def sync_osm(city_slug, layer_slug):
     db.session.commit()
 
     console.print(f"[green]Synced {count} POIs from OpenStreetMap.[/green]")
+
+
+@click.command("sync-districts")
+@click.argument("city_slug")
+@with_appcontext
+def sync_districts(city_slug):
+    """Sync district boundaries from OpenStreetMap."""
+    import httpx
+
+    from openstadt.api.models import City, District
+
+    city = db.session.scalars(db.select(City).where(City.slug == city_slug)).first()
+    if not city:
+        console.print(f"[red]City '{city_slug}' not found.[/red]")
+        return
+
+    # Build Overpass query for administrative boundaries
+    bounds = city.bounds or [
+        [city.center_lat - 0.15, city.center_lng - 0.15],
+        [city.center_lat + 0.15, city.center_lng + 0.15],
+    ]
+    bbox = f"{bounds[0][0]},{bounds[0][1]},{bounds[1][0]},{bounds[1][1]}"
+
+    # Query for admin_level=9 or 10 (Stadtteile in Germany)
+    query = f"""
+    [out:json][timeout:90];
+    (
+      relation["boundary"="administrative"]["admin_level"~"9|10"]({bbox});
+    );
+    out body;
+    >;
+    out skel qt;
+    """
+
+    console.print(f"[yellow]Fetching district boundaries from Overpass API...[/yellow]")
+
+    endpoints = [
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass-api.de/api/interpreter",
+    ]
+    response = None
+    for endpoint in endpoints:
+        try:
+            console.print(f"[yellow]Trying {endpoint}...[/yellow]")
+            response = httpx.post(
+                endpoint,
+                data={"data": query},
+                timeout=120,
+            )
+            response.raise_for_status()
+            break
+        except Exception as e:
+            console.print(f"[red]Failed: {e}[/red]")
+            continue
+
+    if not response:
+        console.print("[red]All Overpass endpoints failed.[/red]")
+        return
+
+    try:
+        data = response.json()
+    except Exception as e:
+        console.print(f"[red]Error parsing response: {e}[/red]")
+        return
+
+    # Parse OSM data into districts
+    elements = data.get("elements", [])
+    nodes = {e["id"]: e for e in elements if e["type"] == "node"}
+    ways = {e["id"]: e for e in elements if e["type"] == "way"}
+    relations = [e for e in elements if e["type"] == "relation"]
+
+    count = 0
+    for rel in relations:
+        tags = rel.get("tags", {})
+        name = tags.get("name")
+        if not name:
+            continue
+
+        # Build polygon from relation members
+        outer_coords = []
+        for member in rel.get("members", []):
+            if member.get("role") == "outer" and member.get("type") == "way":
+                way = ways.get(member["ref"])
+                if way:
+                    for node_id in way.get("nodes", []):
+                        node = nodes.get(node_id)
+                        if node:
+                            outer_coords.append([node["lon"], node["lat"]])
+
+        if len(outer_coords) < 3:
+            continue
+
+        # Create GeoJSON polygon
+        geometry = {
+            "type": "Polygon",
+            "coordinates": [outer_coords]
+        }
+
+        # Calculate approximate area (rough estimate)
+        area_km2 = _calculate_polygon_area(outer_coords)
+
+        # Create slug from name
+        slug = name.lower().replace(" ", "-").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
+        slug = "".join(c for c in slug if c.isalnum() or c == "-")
+
+        # Create or update district
+        district = db.session.scalars(
+            db.select(District).where(District.city_id == city.id, District.slug == slug)
+        ).first()
+        if not district:
+            district = District(city_id=city.id, slug=slug)
+
+        district.name = name
+        district.geometry = geometry
+        district.area_km2 = round(area_km2, 2) if area_km2 else None
+
+        db.session.add(district)
+        count += 1
+
+    db.session.commit()
+    console.print(f"[green]Synced {count} districts from OpenStreetMap.[/green]")
+
+
+def _calculate_polygon_area(coords):
+    """Calculate approximate area of polygon in km² using Shoelace formula."""
+    import math
+
+    if len(coords) < 3:
+        return 0
+
+    # Convert to radians and calculate using spherical approximation
+    n = len(coords)
+    area = 0
+    for i in range(n):
+        j = (i + 1) % n
+        lng1, lat1 = math.radians(coords[i][0]), math.radians(coords[i][1])
+        lng2, lat2 = math.radians(coords[j][0]), math.radians(coords[j][1])
+        area += lng1 * lat2
+        area -= lng2 * lat1
+
+    area = abs(area) / 2
+    # Convert from steradians to km² (Earth radius ≈ 6371 km)
+    area_km2 = area * (6371 ** 2)
+    return area_km2
+
+
+@click.command("assign-districts")
+@click.argument("city_slug")
+@with_appcontext
+def assign_districts(city_slug):
+    """Assign POIs to districts based on their location (point-in-polygon)."""
+    from openstadt.api.models import City, District, POI
+
+    city = db.session.scalars(db.select(City).where(City.slug == city_slug)).first()
+    if not city:
+        console.print(f"[red]City '{city_slug}' not found.[/red]")
+        return
+
+    districts = db.session.scalars(
+        db.select(District).where(District.city_id == city.id, District.geometry.isnot(None))
+    ).all()
+
+    if not districts:
+        console.print(f"[red]No districts with geometry found. Run sync-districts first.[/red]")
+        return
+
+    console.print(f"[yellow]Assigning {len(city.pois)} POIs to {len(districts)} districts...[/yellow]")
+
+    assigned = 0
+    for poi in city.pois:
+        for district in districts:
+            if _point_in_polygon(poi.lng, poi.lat, district.geometry):
+                poi.district = district.name
+                assigned += 1
+                break
+
+    db.session.commit()
+    console.print(f"[green]Assigned {assigned} POIs to districts.[/green]")
+
+
+def _point_in_polygon(x, y, geometry):
+    """Check if point (x=lng, y=lat) is inside a GeoJSON polygon using ray casting."""
+    if not geometry or geometry.get("type") != "Polygon":
+        return False
+
+    coords = geometry.get("coordinates", [[]])[0]
+    if len(coords) < 3:
+        return False
+
+    n = len(coords)
+    inside = False
+
+    j = n - 1
+    for i in range(n):
+        xi, yi = coords[i]
+        xj, yj = coords[j]
+
+        if ((yi > y) != (yj > y)) and (x < (xj - xi) * (y - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+
+    return inside

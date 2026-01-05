@@ -250,6 +250,10 @@ class District(db.Model, BaseMixin):
     # GeoJSON polygon
     geometry = db.Column(db.JSON, nullable=True)
 
+    # Demographics (for equity calculations)
+    population = db.Column(db.Integer, nullable=True)
+    area_km2 = db.Column(db.Float, nullable=True)  # Area in square kilometers
+
     # Relationships
     city = db.relationship("City", back_populates="districts")
 
@@ -257,12 +261,14 @@ class District(db.Model, BaseMixin):
         db.UniqueConstraint("city_id", "slug", name="uq_district_city_slug"),
     )
 
-    def to_dict(self, include_geometry=False):
+    def to_dict(self, include_geometry=False, include_stats=False):
         result = {
             "id": self.id,
             "cityId": self.city_id,
             "name": self.name,
             "slug": self.slug,
+            "population": self.population,
+            "areaKm2": self.area_km2,
         }
         if include_geometry and self.geometry:
             result["geometry"] = self.geometry

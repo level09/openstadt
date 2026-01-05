@@ -41,3 +41,13 @@ def poi_detail(slug, poi_id):
         return render_template("errors/404.html"), 404
 
     return render_template("public/poi.html", city=poi.city, poi=poi)
+
+
+@public.route("/<slug>/analytics")
+def city_analytics(slug):
+    """Equity analysis dashboard for a city."""
+    city = db.session.scalars(db.select(City).where(City.slug == slug)).first()
+    if not city:
+        return render_template("errors/404.html"), 404
+
+    return render_template("public/analytics.html", city=city)

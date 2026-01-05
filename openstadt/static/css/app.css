@@ -140,6 +140,15 @@ body {
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
+/* Analytics Button */
+.analytics-btn {
+    position: absolute !important;
+    bottom: 150px;
+    right: 10px;
+    z-index: 1000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
 /* User Location Marker */
 .user-location-marker {
     background: transparent;

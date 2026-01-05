@@ -99,6 +99,18 @@
         <v-icon icon="mdi-crosshairs-gps"></v-icon>
     </v-btn>
 
+    <!-- Analytics Button -->
+    <v-btn
+        class="analytics-btn"
+        :href="'/' + city.slug + '/analytics'"
+        icon
+        size="small"
+        color="primary"
+    >
+        <v-icon icon="mdi-chart-bar"></v-icon>
+        <v-tooltip activator="parent" location="left">Analyse Dashboard</v-tooltip>
+    </v-btn>
+
     <!-- The Map -->
     <div id="map"></div>
 

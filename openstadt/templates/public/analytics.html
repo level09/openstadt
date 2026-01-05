@@ -1,0 +1,388 @@
+{% extends "map_layout.html" %}
+
+{% block title %}{{ city.name }} - Infrastruktur-Analyse{% endblock %}
+{% block description %}Analyse der öffentlichen Infrastruktur in {{ city.name }}{% endblock %}
+{% block city_name %}{{ city.name }} - Analyse{% endblock %}
+
+{% block content %}
+<v-app>
+    <div class="analytics-page">
+        <!-- Header -->
+        <v-container fluid class="py-4 bg-primary">
+            <v-row align="center">
+                <v-col cols="12" md="8">
+                    <h1 class="text-h4 text-white font-weight-bold mb-1">
+                        <v-icon icon="mdi-chart-bar" class="mr-2"></v-icon>
+                        Infrastruktur-Analyse
+                    </h1>
+                    <p class="text-white text-body-1 mb-0 opacity-80">
+                        Welche Stadtteile sind unterversorgt? Wo gibt es Lücken?
+                    </p>
+                </v-col>
+                <v-col cols="12" md="4" class="text-md-right">
+                    <v-btn :href="'/' + city.slug" variant="outlined" color="white" prepend-icon="mdi-map">
+                        Zur Karte
+                    </v-btn>
+                </v-col>
+            </v-row>
+        </v-container>
+
+        <v-container class="py-6">
+            <!-- Loading -->
+            <div v-if="loading" class="text-center py-12">
+                <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+                <p class="mt-4 text-grey">Daten werden geladen...</p>
+            </div>
+
+            <div v-else>
+                <!-- Summary Cards -->
+                <v-row class="mb-6">
+                    <v-col cols="6" md="3">
+                        <v-card class="stat-card" elevation="2">
+                            <v-card-text class="text-center">
+                                <v-icon icon="mdi-map-marker-multiple" size="32" color="primary" class="mb-2"></v-icon>
+                                <div class="text-h4 font-weight-bold">${ summary.totalPois }</div>
+                                <div class="text-caption text-grey">Einrichtungen gesamt</div>
+                            </v-card-text>
+                        </v-card>
+                    </v-col>
+                    <v-col cols="6" md="3">
+                        <v-card class="stat-card" elevation="2">
+                            <v-card-text class="text-center">
+                                <v-icon icon="mdi-home-city" size="32" color="success" class="mb-2"></v-icon>
+                                <div class="text-h4 font-weight-bold">${ summary.totalDistricts }</div>
+                                <div class="text-caption text-grey">Stadtteile</div>
+                            </v-card-text>
+                        </v-card>
+                    </v-col>
+                    <v-col cols="6" md="3">
+                        <v-card class="stat-card" elevation="2">
+                            <v-card-text class="text-center">
+                                <v-icon icon="mdi-calculator" size="32" color="info" class="mb-2"></v-icon>
+                                <div class="text-h4 font-weight-bold">${ summary.cityAverage }</div>
+                                <div class="text-caption text-grey">Durchschnitt/Stadtteil</div>
+                            </v-card-text>
+                        </v-card>
+                    </v-col>
+                    <v-col cols="6" md="3">
+                        <v-card class="stat-card" elevation="2">
+                            <v-card-text class="text-center">
+                                <v-icon icon="mdi-alert-circle" size="32" color="warning" class="mb-2"></v-icon>
+                                <div class="text-h4 font-weight-bold">${ underservedCount }</div>
+                                <div class="text-caption text-grey">Unterversorgte Stadtteile</div>
+                            </v-card-text>
+                        </v-card>
+                    </v-col>
+                </v-row>
+
+                <!-- District Comparison Table -->
+                <v-card v-if="sortedDistricts.length > 0 && validLayers.length > 0" class="mb-6" elevation="2">
+                    <v-card-title class="d-flex align-center">
+                        <v-icon icon="mdi-table" class="mr-2"></v-icon>
+                        Stadtteil-Vergleich
+                        <v-spacer></v-spacer>
+                        <v-chip :color="sortBy === 'equityScore' ? 'primary' : 'grey'"
+                                size="small" class="mr-2" @click="sortBy = 'equityScore'">
+                            Nach Equity
+                        </v-chip>
+                        <v-chip :color="sortBy === 'total' ? 'primary' : 'grey'"
+                                size="small" @click="sortBy = 'total'">
+                            Nach Anzahl
+                        </v-chip>
+                    </v-card-title>
+                    <v-divider></v-divider>
+                    <div v-if="!loading && validLayers.length > 0" class="v-table v-table--density-comfortable">
+                        <div class="v-table__wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Stadtteil</th>
+                                        <th v-for="(layer, idx) in validLayers" :key="'h' + idx" class="text-center">
+                                            <span class="layer-dot" :style="{ backgroundColor: layer.color }"></span>
+                                            ${ layer.name }
+                                        </th>
+                                        <th class="text-center">Gesamt</th>
+                                        <th class="text-center" style="min-width: 200px">Equity Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(dist, dIdx) in sortedDistricts" :key="'d' + dIdx"
+                                        :class="{ 'bg-red-lighten-5': dist.equityScore < 50, 'bg-green-lighten-5': dist.equityScore > 150 }">
+                                        <td class="font-weight-medium">
+                                            ${ dist.name }
+                                            <v-icon v-if="dist.equityScore < 50" icon="mdi-alert"
+                                                    color="error" size="small" class="ml-1"></v-icon>
+                                        </td>
+                                        <td v-for="(lyr, lIdx) in validLayers" :key="'l' + lIdx" class="text-center">
+                                            ${ dist.layers[lyr.slug] || 0 }
+                                        </td>
+                                        <td class="text-center font-weight-bold">${ dist.total }</td>
+                                        <td>
+                                            <div class="d-flex align-center">
+                                                <v-progress-linear
+                                                    :model-value="Math.min(dist.equityScore, 200)"
+                                                    :color="getEquityColor(dist.equityScore)"
+                                                    height="20"
+                                                    max="200"
+                                                    rounded
+                                                    class="flex-grow-1"
+                                                >
+                                                    <template v-slot:default>
+                                                        <span class="text-caption font-weight-bold">
+                                                            ${ dist.equityScore }%
+                                                        </span>
+                                                    </template>
+                                                </v-progress-linear>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <v-card-text class="text-caption text-grey">
+                        <v-icon icon="mdi-information-outline" size="small"></v-icon>
+                        Equity Score: 100% = Stadtdurchschnitt. Unter 50% = stark unterversorgt.
+                    </v-card-text>
+                </v-card>
+
+                <!-- Layer Comparison -->
+                <v-card v-if="validLayerComparison.length > 0" class="mb-6" elevation="2">
+                    <v-card-title>
+                        <v-icon icon="mdi-layers" class="mr-2"></v-icon>
+                        Ebenen-Vergleich
+                    </v-card-title>
+                    <v-divider></v-divider>
+                    <v-card-text>
+                        <v-row>
+                            <v-col v-for="(item, idx) in validLayerComparison" :key="'c' + idx" cols="12" sm="6" md="3">
+                                <v-card variant="outlined" :style="{ borderColor: getItemColor(item), borderWidth: '2px' }">
+                                    <v-card-text>
+                                        <div class="d-flex align-center mb-2">
+                                            <span class="layer-dot mr-2" :style="{ backgroundColor: getItemColor(item) }"></span>
+                                            <span class="font-weight-bold">${ item.name }</span>
+                                        </div>
+                                        <div class="text-h4 font-weight-bold mb-2">${ item.totalPois }</div>
+                                        <div class="text-caption">
+                                            <div>Ø ${ item.avgPerDistrict } pro Stadtteil</div>
+                                            <div>Min: ${ item.minInDistrict } / Max: ${ item.maxInDistrict }</div>
+                                            <div class="mt-1">
+                                                <v-chip size="x-small" :color="item.distributionSpread > 20 ? 'warning' : 'success'">
+                                                    Spread: ${ item.distributionSpread }
+                                                </v-chip>
+                                            </div>
+                                        </div>
+                                    </v-card-text>
+                                </v-card>
+                            </v-col>
+                        </v-row>
+                    </v-card-text>
+                </v-card>
+
+                <!-- Coverage Analysis -->
+                <v-card elevation="2">
+                    <v-card-title class="d-flex align-center">
+                        <v-icon icon="mdi-radar" class="mr-2"></v-icon>
+                        Abdeckungs-Analyse
+                        <v-spacer></v-spacer>
+                        <v-select
+                            v-model="selectedLayer"
+                            :items="layerOptions"
+                            label="Ebene"
+                            density="compact"
+                            variant="outlined"
+                            hide-details
+                            style="max-width: 200px"
+                            @update:model-value="loadCoverage"
+                        ></v-select>
+                    </v-card-title>
+                    <v-divider></v-divider>
+                    <v-card-text v-if="coverage">
+                        <v-alert type="info" variant="tonal" class="mb-4">
+                            <strong>${ coverage.totalFacilities } ${ coverage.layerName }</strong> mit
+                            <strong>${ coverage.radiusMeters }m</strong> Einzugsradius analysiert.
+                        </v-alert>
+
+                        <v-row v-if="validDistrictCoverage.length > 0">
+                            <v-col cols="12" md="6">
+                                <h4 class="text-subtitle-1 font-weight-bold mb-3">Abdeckung nach Stadtteil</h4>
+                                <div v-for="(dc, idx) in validDistrictCoverage" :key="'cov' + idx" class="mb-3">
+                                    <div class="d-flex justify-space-between mb-1">
+                                        <span>${ dc.district }</span>
+                                        <span class="font-weight-bold" :class="dc.coveragePct < 50 ? 'text-error' : ''">
+                                            ${ dc.coveragePct }%
+                                        </span>
+                                    </div>
+                                    <v-progress-linear
+                                        :model-value="dc.coveragePct"
+                                        :color="dc.coveragePct < 50 ? 'error' : dc.coveragePct < 75 ? 'warning' : 'success'"
+                                        height="8"
+                                        rounded
+                                    ></v-progress-linear>
+                                </div>
+                            </v-col>
+                            <v-col cols="12" md="6">
+                                <h4 class="text-subtitle-1 font-weight-bold mb-3">Interpretation</h4>
+                                <v-alert v-if="underservedDistricts.length > 0"
+                                         type="warning" variant="tonal" class="mb-3">
+                                    <strong>${ underservedDistricts.length } Stadtteile</strong>
+                                    haben weniger als 50% Abdeckung für ${ coverage.layerName }.
+                                </v-alert>
+                                <p class="text-body-2 text-grey-darken-1">
+                                    Die Abdeckung zeigt, wie viele bestehende Einrichtungen innerhalb von
+                                    ${ coverage.radiusMeters }m eines ${ coverage.layerName } liegen.
+                                    Niedrige Werte deuten auf potenzielle Versorgungslücken hin.
+                                </p>
+                            </v-col>
+                        </v-row>
+                    </v-card-text>
+                </v-card>
+            </div>
+        </v-container>
+    </div>
+</v-app>
+{% endblock %}
+
+{% block css %}
+<style>
+/* Override map-page restrictions for analytics */
+body.map-page {
+    height: auto;
+    overflow: auto;
+}
+.map-page .v-application {
+    height: auto;
+}
+.map-page .v-application__wrap {
+    min-height: auto;
+}
+.analytics-page {
+    min-height: 100vh;
+    background: #f5f5f5;
+}
+.stat-card {
+    transition: transform 0.2s;
+}
+.stat-card:hover {
+    transform: translateY(-2px);
+}
+.layer-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+</style>
+{% endblock %}
+
+{% block js %}
+<script>
+    const cityData = {{ city.to_dict(include_layers=True) | tojson | safe }};
+
+    const { createApp } = Vue;
+    const { createVuetify } = Vuetify;
+    const vuetify = createVuetify(config.vuetifyConfig);
+
+    const app = createApp({
+        delimiters: config.delimiters,
+        data() {
+            return {
+                city: cityData,
+                layers: cityData.layers || [],
+                loading: true,
+                districts: [],
+                summary: { totalPois: 0, totalDistricts: 0, cityAverage: 0 },
+                layerComparison: [],
+                coverage: null,
+                selectedLayer: 'playgrounds',
+                sortBy: 'equityScore',
+            };
+        },
+        computed: {
+            validLayers() {
+                return (this.layers || []).filter(l => l && l.slug && l.name && l.color);
+            },
+            validLayerComparison() {
+                return (this.layerComparison || []).filter(item => item && item.slug && item.name && item.color);
+            },
+            sortedDistricts() {
+                const sorted = [...this.districts].filter(d => d);
+                if (this.sortBy === 'equityScore') {
+                    sorted.sort((a, b) => (a.equityScore || 0) - (b.equityScore || 0));
+                } else {
+                    sorted.sort((a, b) => (b.total || 0) - (a.total || 0));
+                }
+                return sorted;
+            },
+            underservedCount() {
+                return this.districts.filter(d => d && (d.equityScore || 0) < 50).length;
+            },
+            validDistrictCoverage() {
+                if (!this.coverage || !this.coverage.districtCoverage) return [];
+                return this.coverage.districtCoverage.filter(d => d && d.district !== undefined && d.coveragePct !== undefined);
+            },
+            underservedDistricts() {
+                return this.validDistrictCoverage.filter(d => d.coveragePct < 50);
+            },
+            layerOptions() {
+                return this.validLayers.map(l => ({ title: l.name, value: l.slug }));
+            }
+        },
+        methods: {
+            async loadData() {
+                this.loading = true;
+                try {
+                    const [districtRes, comparisonRes] = await Promise.all([
+                        axios.get(`/api/v1/cities/${this.city.slug}/analytics/districts`),
+                        axios.get(`/api/v1/cities/${this.city.slug}/analytics/comparison`),
+                    ]);
+
+                    this.districts = districtRes.data.items;
+                    this.summary = districtRes.data.summary;
+                    this.layerComparison = comparisonRes.data.items;
+
+                    await this.loadCoverage();
+                } catch (error) {
+                    console.error('Error loading analytics:', error);
+                } finally {
+                    this.loading = false;
+                }
+            },
+            async loadCoverage() {
+                try {
+                    const res = await axios.get(
+                        `/api/v1/cities/${this.city.slug}/analytics/coverage?layer=${this.selectedLayer}`
+                    );
+                    this.coverage = res.data;
+                } catch (error) {
+                    console.error('Error loading coverage:', error);
+                }
+            },
+            getDistrictLayerCount(district, layer) {
+                if (!district || !district.layers || !layer || !layer.slug) return 0;
+                return district.layers[layer.slug] || 0;
+            },
+            getLayerColor(layer) {
+                return layer && layer.color ? layer.color : '#ccc';
+            },
+            getLayerName(layer) {
+                return layer && layer.name ? layer.name : '';
+            },
+            getItemColor(item) {
+                return item && item.color ? item.color : '#ccc';
+            },
+            getEquityColor(score) {
+                if (score < 50) return 'error';
+                if (score < 75) return 'warning';
+                if (score < 125) return 'success';
+                return 'info';
+            }
+        },
+        mounted() {
+            this.loadData();
+        }
+    });
+
+    app.use(vuetify).mount('#app');
+</script>
+{% endblock %}
