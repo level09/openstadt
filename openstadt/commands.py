@@ -438,23 +438,48 @@ def sync_districts(city_slug):
         console.print(f"[red]City '{city_slug}' not found.[/red]")
         return
 
-    # Build Overpass query for administrative boundaries
-    bounds = city.bounds or [
-        [city.center_lat - 0.15, city.center_lng - 0.15],
-        [city.center_lat + 0.15, city.center_lng + 0.15],
-    ]
-    bbox = f"{bounds[0][0]},{bounds[0][1]},{bounds[1][0]},{bounds[1][1]}"
+    # OSM relation IDs for German cities (admin_level=4 for city-states, 6 for others)
+    # This ensures we only get districts WITHIN the city, not surrounding areas
+    city_osm_relations = {
+        "berlin": 62422,      # Berlin (city-state)
+        "hamburg": 62782,     # Hamburg (city-state)
+        "muenchen": 62428,    # München
+        "koeln": 62578,       # Köln
+        "frankfurt": 62400,   # Frankfurt am Main
+        "mannheim": 62691,    # Mannheim
+        "darmstadt": 62581,   # Darmstadt
+    }
 
-    # Query for admin_level=9 or 10 (Stadtteile in Germany)
-    query = f"""
-    [out:json][timeout:90];
-    (
-      relation["boundary"="administrative"]["admin_level"~"9|10"]({bbox});
-    );
-    out body;
-    >;
-    out skel qt;
-    """
+    osm_relation_id = city_osm_relations.get(city_slug)
+
+    if osm_relation_id:
+        # Use area-based query to get only districts within the city
+        query = f"""
+        [out:json][timeout:90];
+        area({3600000000 + osm_relation_id})->.city;
+        relation["boundary"="administrative"]["admin_level"~"9|10"](area.city);
+        out body;
+        >;
+        out skel qt;
+        """
+        console.print(f"[yellow]Using OSM relation {osm_relation_id} for precise boundary[/yellow]")
+    else:
+        # Fallback to bounding box (less accurate)
+        bounds = city.bounds or [
+            [city.center_lat - 0.15, city.center_lng - 0.15],
+            [city.center_lat + 0.15, city.center_lng + 0.15],
+        ]
+        bbox = f"{bounds[0][0]},{bounds[0][1]},{bounds[1][0]},{bounds[1][1]}"
+        query = f"""
+        [out:json][timeout:90];
+        (
+          relation["boundary"="administrative"]["admin_level"~"9|10"]({bbox});
+        );
+        out body;
+        >;
+        out skel qt;
+        """
+        console.print(f"[yellow]Warning: No OSM relation ID for {city_slug}, using bbox (may include surrounding areas)[/yellow]")
 
     console.print(f"[yellow]Fetching district boundaries from Overpass API...[/yellow]")
 
@@ -492,6 +517,16 @@ def sync_districts(city_slug):
     nodes = {e["id"]: e for e in elements if e["type"] == "node"}
     ways = {e["id"]: e for e in elements if e["type"] == "way"}
     relations = [e for e in elements if e["type"] == "relation"]
+
+    # Clear existing districts for this city (full sync)
+    console.print(f"[yellow]Clearing existing districts...[/yellow]")
+    db.session.execute(db.delete(District).where(District.city_id == city.id))
+
+    # Also clear district assignments on POIs
+    from openstadt.api.models import POI
+    db.session.execute(
+        db.update(POI).where(POI.city_id == city.id).values(district=None)
+    )
 
     count = 0
     for rel in relations:
