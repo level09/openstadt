@@ -54,3 +54,4 @@ Thumbs.db
 /config/cities/*.yaml
 !/config/cities/_template.yaml
 !/config/cities/mannheim.yaml
+!/config/cities/darmstadt.yaml
