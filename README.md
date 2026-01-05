@@ -2,6 +2,14 @@
 
 **Open-source infrastructure equity platform for German cities — map, analyze, and compare public facilities across neighborhoods**
 
+**Offene Infrastruktur-Analyse für deutsche Städte — Karten, Analysen und Vergleiche öffentlicher Einrichtungen**
+
+[![Live Demo](https://img.shields.io/badge/demo-openstadt.org-blue)](https://openstadt.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Made in Germany](https://img.shields.io/badge/Made%20in-Germany-black)](https://codefor.de)
+
+[English](#what-is-openstadt) | [Deutsch](#was-ist-openstadt)
+
 ## What is OpenStadt?
 
 OpenStadt helps cities answer a simple but important question: **"Are public facilities distributed fairly across all neighborhoods?"**
@@ -189,6 +197,113 @@ After syncing from OSM:
 - **Researchers**: Analyze infrastructure distribution patterns
 - **NGOs**: Advocate for equitable resource allocation
 
+## Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
 ## License
 
-MIT
+MIT - see [LICENSE](LICENSE)
+
+---
+
+# Deutsch
+
+## Was ist OpenStadt?
+
+OpenStadt beantwortet eine einfache aber wichtige Frage: **"Sind öffentliche Einrichtungen gerecht über alle Stadtteile verteilt?"**
+
+Jede Stadt hat öffentliche Infrastruktur - Spielplätze, Schulen, Kindergärten, Recyclingcontainer und mehr. Aber diese Infrastruktur ist nicht immer gleichmäßig verteilt. Manche Stadtteile haben 20 Spielplätze, andere keinen einzigen. OpenStadt macht diese Ungleichheiten sichtbar, damit Stadtplaner, Journalisten und Bürger unterversorgte Gebiete identifizieren können.
+
+### Das Problem
+
+- Städte wissen oft nicht, wo ihre Infrastrukturlücken sind
+- Daten sind über verschiedene Ämter und Formate verstreut
+- Es gibt keine einfache Möglichkeit, Stadtteile zu vergleichen
+- Bürger können nicht sehen, ob ihr Viertel benachteiligt ist
+
+### Die Lösung
+
+OpenStadt bezieht echte Daten aus OpenStreetMap, ordnet jede Einrichtung ihrem Stadtteil zu und berechnet einen **Equity Score** für jeden Bezirk. Bezirke mit einem Score unter 50% werden als "unterversorgt" markiert.
+
+## Funktionen
+
+### Interaktive Karte (`/stadtname`)
+- Alle öffentlichen Einrichtungen auf einer Karte mit farbigen Markern
+- Filter nach Einrichtungstyp (Spielplätze, Schulen, etc.)
+- Filter nach Stadtteil
+- Suche nach Adressen
+- "In meiner Nähe" Geolokation
+
+### Analyse-Dashboard (`/stadtname/analytics`)
+- **Übersichtskarten**: Gesamtzahl, Stadtteile, Durchschnitt, Unterversorgte
+- **Stadtteil-Vergleich**: Alle Viertel nach Equity Score sortiert
+- **Ebenen-Vergleich**: Statistiken pro Einrichtungstyp
+- **Abdeckungs-Analyse**: Welche Gebiete haben Lücken?
+
+## Schnellstart
+
+```bash
+# Setup
+./setup.sh
+
+# Oder manuell:
+uv sync
+cp .env-sample .env
+uv run flask create-db
+uv run flask install
+
+# Stadt laden
+uv run flask load-city config/cities/mannheim.yaml
+
+# Stadtteilgrenzen synchronisieren
+uv run flask sync-districts mannheim
+
+# Einrichtungen von OpenStreetMap laden
+uv run flask sync-osm mannheim playgrounds
+
+# App starten
+uv run flask run
+```
+
+Besuchen Sie:
+- Karte: http://localhost:5000/mannheim
+- Analyse: http://localhost:5000/mannheim/analytics
+
+## Verfügbare Städte
+
+| Stadt | Konfiguration |
+|-------|---------------|
+| Berlin | `berlin.yaml` |
+| Darmstadt | `darmstadt.yaml` |
+| Frankfurt am Main | `frankfurt.yaml` |
+| Hamburg | `hamburg.yaml` |
+| Köln | `koeln.yaml` |
+| Mannheim | `mannheim.yaml` |
+| München | `muenchen.yaml` |
+
+Alle Städte auf einmal laden:
+```bash
+uv run flask sync-all
+```
+
+## Anwendungsfälle
+
+- **Stadtplaner**: Identifizieren, wo neue Einrichtungen gebaut werden sollten
+- **Journalisten**: Datengetriebene Geschichten über städtische Ungleichheit
+- **Bürger**: Prüfen, ob das eigene Viertel unterversorgt ist
+- **Forscher**: Infrastrukturverteilung analysieren
+- **NGOs**: Für gerechte Ressourcenverteilung eintreten
+
+## Beitragen
+
+Wir freuen uns über Beiträge! Siehe [CONTRIBUTING.md](CONTRIBUTING.md) für Richtlinien.
+
+## Community
+
+- [Code for Germany](https://codefor.de) - Civic Tech Community
+- [Open Knowledge Foundation](https://okfn.de) - Offene Daten für alle
+
+## Lizenz
+
+MIT - siehe [LICENSE](LICENSE)
