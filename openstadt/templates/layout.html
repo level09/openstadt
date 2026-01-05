@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}OpenStadt{% endblock %}</title>
+    <meta name="description" content="{% block description %}Offene Stadtdaten für alle{% endblock %}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+
+    <link rel="stylesheet" href="/static/css/vuetify.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.x/css/materialdesignicons.min.css">
+    <link rel="stylesheet" href="/static/css/app.css">
+
+    {% block css %}{% endblock %}
+    {% block head_js %}{% endblock %}
+</head>
+
+<body class="{% block body_class %}{% endblock %}">
+<v-app id="app">
+    <v-layout class="rounded rounded-md">
+        <!-- App Bar -->
+        <v-app-bar color="primary" density="comfortable" elevation="1">
+            {% if current_user.is_authenticated %}
+            <v-app-bar-nav-icon @click="drawer = !drawer" class="d-md-none"></v-app-bar-nav-icon>
+            {% endif %}
+
+            <v-app-bar-title>
+                <a href="/" class="d-flex align-center text-decoration-none text-white">
+                    <v-icon icon="mdi-city" class="mr-2"></v-icon>
+                    <span class="font-weight-bold">OpenStadt</span>
+                </a>
+            </v-app-bar-title>
+
+            <v-spacer></v-spacer>
+
+            {% if not current_user.is_authenticated %}
+            <v-btn href="/login" variant="text" color="white">Anmelden</v-btn>
+            {% else %}
+            <!-- User Menu -->
+            <v-menu location="bottom end">
+                <template v-slot:activator="{ props }">
+                    <v-btn v-bind="props" icon variant="text" size="small" color="white">
+                        <v-avatar color="white" size="32">
+                            <span class="text-primary text-body-2">{{ current_user.name[:2]|upper if current_user.name else 'U' }}</span>
+                        </v-avatar>
+                    </v-btn>
+                </template>
+
+                <v-card min-width="220">
+                    <v-list density="compact">
+                        <v-list-item>
+                            <v-list-item-title class="font-weight-medium">{{ current_user.name or current_user.email }}</v-list-item-title>
+                            <v-list-item-subtitle>{{ current_user.email }}</v-list-item-subtitle>
+                        </v-list-item>
+                    </v-list>
+                    <v-divider></v-divider>
+                    <v-list density="compact">
+                        <v-list-item href="/dashboard" prepend-icon="mdi-view-dashboard">
+                            <v-list-item-title>Dashboard</v-list-item-title>
+                        </v-list-item>
+                        <v-list-item href="/change" prepend-icon="mdi-key">
+                            <v-list-item-title>Passwort ändern</v-list-item-title>
+                        </v-list-item>
+                    </v-list>
+                    <v-divider></v-divider>
+                    <v-list density="compact">
+                        <v-list-item href="/logout" prepend-icon="mdi-logout" base-color="error">
+                            <v-list-item-title>Abmelden</v-list-item-title>
+                        </v-list-item>
+                    </v-list>
+                </v-card>
+            </v-menu>
+            {% endif %}
+        </v-app-bar>
+
+        {% if current_user.is_authenticated %}
+        <!-- Admin Navigation Drawer -->
+        <v-navigation-drawer v-model="drawer" width="260">
+            <v-list density="compact" nav>
+                <v-list-item href="/dashboard" prepend-icon="mdi-view-dashboard" title="Übersicht"></v-list-item>
+                <v-list-item href="/dashboard/cities" prepend-icon="mdi-city" title="Städte"></v-list-item>
+                <v-list-item href="/dashboard/import" prepend-icon="mdi-database-import" title="Daten Import"></v-list-item>
+
+                {% if current_user.has_role('admin') %}
+                <v-divider class="my-2"></v-divider>
+                <v-list-subheader>Administration</v-list-subheader>
+                <v-list-item href="/admin/users" prepend-icon="mdi-account-multiple" title="Benutzer"></v-list-item>
+                <v-list-item href="/admin/roles" prepend-icon="mdi-shield-account" title="Rollen"></v-list-item>
+                <v-list-item href="/admin/activities" prepend-icon="mdi-history" title="Aktivitäten"></v-list-item>
+                {% endif %}
+            </v-list>
+        </v-navigation-drawer>
+        {% endif %}
+
+        <!-- Main Content -->
+        <v-main>
+            {% block content %}
+            {% endblock %}
+        </v-main>
+
+        <!-- Flash messages -->
+        {% set messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <v-snackbar v-model="showFlash" :timeout="5000" color="${flashType}" location="top">
+            ${ flashMessage }
+            <template v-slot:actions>
+                <v-btn variant="text" @click="showFlash = false">Schließen</v-btn>
+            </template>
+        </v-snackbar>
+        {% endif %}
+    </v-layout>
+</v-app>
+
+<!-- Scripts -->
+<script src="/static/js/vue.min.js"></script>
+<script src="/static/js/config.js"></script>
+<script src="/static/js/vuetify.min.js"></script>
+<script src="/static/js/axios.min.js"></script>
+
+<script>
+    // Flash message data
+    {% if messages %}
+    const flashMessages = {{ messages | tojson | safe }};
+    {% else %}
+    const flashMessages = [];
+    {% endif %}
+
+    // Base app mixin
+    const layoutMixin = {
+        data() {
+            return {
+                drawer: window.innerWidth >= 960,
+                showFlash: flashMessages.length > 0,
+                flashType: flashMessages.length > 0 ? flashMessages[0][0] : 'info',
+                flashMessage: flashMessages.length > 0 ? flashMessages[0][1] : '',
+            };
+        }
+    };
+</script>
+
+{% block js %}{% endblock %}
+</body>
+</html>

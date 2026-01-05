@@ -1,0 +1,77 @@
+{% extends "layout.html" %}
+
+{% block title %}OpenStadt - Offene Stadtdaten{% endblock %}
+
+{% block content %}
+<v-container class="py-8">
+    <v-row justify="center">
+        <v-col cols="12" md="8" class="text-center">
+            <v-icon icon="mdi-city" size="64" color="primary" class="mb-4"></v-icon>
+            <h1 class="text-h3 font-weight-bold mb-4">OpenStadt</h1>
+            <p class="text-h6 text-medium-emphasis mb-8">
+                Offene Stadtdaten für alle. Finde Kitas, Spielplätze, Bäume und mehr in deiner Stadt.
+            </p>
+        </v-col>
+    </v-row>
+
+    {% if cities %}
+    <v-row justify="center">
+        <v-col cols="12" md="10" lg="8">
+            <h2 class="text-h5 mb-4">Verfügbare Städte</h2>
+            <v-row>
+                {% for city in cities %}
+                <v-col cols="12" sm="6" md="4">
+                    <v-card
+                        :href="'/{{ city.slug }}'"
+                        hover
+                        class="city-card"
+                    >
+                        <v-card-item>
+                            <template v-slot:prepend>
+                                <v-avatar color="primary" size="48">
+                                    <v-icon icon="mdi-city" size="24"></v-icon>
+                                </v-avatar>
+                            </template>
+                            <v-card-title>{{ city.name }}</v-card-title>
+                            <v-card-subtitle>{{ city.state or 'Deutschland' }}</v-card-subtitle>
+                        </v-card-item>
+                        <v-card-text>
+                            <v-chip size="small" class="mr-1">
+                                {{ city.layers|length }} Ebenen
+                            </v-chip>
+                            <v-chip size="small">
+                                {{ city.pois|length }} Orte
+                            </v-chip>
+                        </v-card-text>
+                    </v-card>
+                </v-col>
+                {% endfor %}
+            </v-row>
+        </v-col>
+    </v-row>
+    {% else %}
+    <v-row justify="center">
+        <v-col cols="12" md="6" class="text-center">
+            <v-alert type="info" variant="tonal">
+                Noch keine Städte konfiguriert. Melden Sie sich an, um eine Stadt hinzuzufügen.
+            </v-alert>
+        </v-col>
+    </v-row>
+    {% endif %}
+</v-container>
+{% endblock %}
+
+{% block js %}
+<script>
+    const { createApp } = Vue;
+    const { createVuetify } = Vuetify;
+    const vuetify = createVuetify(config.vuetifyConfig);
+
+    const app = createApp({
+        mixins: [layoutMixin],
+        delimiters: config.delimiters,
+    });
+
+    app.use(vuetify).mount('#app');
+</script>
+{% endblock %}

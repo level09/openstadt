@@ -1,0 +1,148 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard - OpenStadt{% endblock %}
+
+{% block content %}
+<v-container fluid class="pa-6">
+    <h1 class="text-h4 mb-6">Dashboard</h1>
+
+    <!-- Stats Overview -->
+    <v-row class="mb-6">
+        <v-col cols="12" sm="6" md="3">
+            <v-card class="stat-card primary">
+                <v-card-item>
+                    <template v-slot:prepend>
+                        <v-avatar color="primary" size="48">
+                            <v-icon icon="mdi-city" size="24"></v-icon>
+                        </v-avatar>
+                    </template>
+                    <v-card-title class="text-h5">{{ cities|length }}</v-card-title>
+                    <v-card-subtitle>Städte</v-card-subtitle>
+                </v-card-item>
+            </v-card>
+        </v-col>
+
+        <v-col cols="12" sm="6" md="3">
+            <v-card class="stat-card success">
+                <v-card-item>
+                    <template v-slot:prepend>
+                        <v-avatar color="success" size="48">
+                            <v-icon icon="mdi-layers" size="24"></v-icon>
+                        </v-avatar>
+                    </template>
+                    <v-card-title class="text-h5">{{ total_layers }}</v-card-title>
+                    <v-card-subtitle>Ebenen</v-card-subtitle>
+                </v-card-item>
+            </v-card>
+        </v-col>
+
+        <v-col cols="12" sm="6" md="3">
+            <v-card class="stat-card warning">
+                <v-card-item>
+                    <template v-slot:prepend>
+                        <v-avatar color="warning" size="48">
+                            <v-icon icon="mdi-map-marker-multiple" size="24"></v-icon>
+                        </v-avatar>
+                    </template>
+                    <v-card-title class="text-h5">{{ total_pois }}</v-card-title>
+                    <v-card-subtitle>POIs</v-card-subtitle>
+                </v-card-item>
+            </v-card>
+        </v-col>
+
+        <v-col cols="12" sm="6" md="3">
+            <v-card>
+                <v-card-item>
+                    <template v-slot:prepend>
+                        <v-avatar color="info" size="48">
+                            <v-icon icon="mdi-account-group" size="24"></v-icon>
+                        </v-avatar>
+                    </template>
+                    <v-card-title class="text-h5">-</v-card-title>
+                    <v-card-subtitle>Benutzer</v-card-subtitle>
+                </v-card-item>
+            </v-card>
+        </v-col>
+    </v-row>
+
+    <!-- Cities Table -->
+    <v-card>
+        <v-card-title class="d-flex align-center">
+            <v-icon icon="mdi-city" class="mr-2"></v-icon>
+            Städte
+            <v-spacer></v-spacer>
+            <v-btn
+                color="primary"
+                size="small"
+                prepend-icon="mdi-plus"
+            >
+                Stadt hinzufügen
+            </v-btn>
+        </v-card-title>
+
+        <v-table>
+            <thead>
+                <tr>
+                    <th>Stadt</th>
+                    <th>Bundesland</th>
+                    <th>Ebenen</th>
+                    <th>POIs</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for city in cities %}
+                <tr>
+                    <td>
+                        <a href="/{{ city.slug }}" class="text-decoration-none">{{ city.name }}</a>
+                    </td>
+                    <td>{{ city.state or '-' }}</td>
+                    <td>{{ city.layers|length }}</td>
+                    <td>{{ city.pois|length }}</td>
+                    <td>
+                        <v-btn
+                            :href="'/dashboard/cities/{{ city.slug }}'"
+                            icon
+                            size="x-small"
+                            variant="text"
+                        >
+                            <v-icon icon="mdi-pencil"></v-icon>
+                        </v-btn>
+                        <v-btn
+                            :href="'/{{ city.slug }}'"
+                            icon
+                            size="x-small"
+                            variant="text"
+                            target="_blank"
+                        >
+                            <v-icon icon="mdi-open-in-new"></v-icon>
+                        </v-btn>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-medium-emphasis py-6">
+                        Noch keine Städte vorhanden.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </v-table>
+    </v-card>
+</v-container>
+{% endblock %}
+
+{% block js %}
+<script>
+    const { createApp } = Vue;
+    const { createVuetify } = Vuetify;
+    const vuetify = createVuetify(config.vuetifyConfig);
+
+    const app = createApp({
+        mixins: [layoutMixin],
+        delimiters: config.delimiters,
+    });
+
+    app.use(vuetify).mount('#app');
+</script>
+{% endblock %}

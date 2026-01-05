@@ -1,0 +1,68 @@
+# City Configuration Template
+# Copy this file and rename it to your city's slug (e.g., darmstadt.yaml)
+# Load with: uv run flask load-city config/cities/<your-city>.yaml
+
+city:
+  slug: your-city-slug        # URL-safe identifier (lowercase, no spaces)
+  name: Your City Name        # Display name
+  state: Your State           # German Bundesland
+  center: [49.0, 8.0]         # [latitude, longitude] - center of the map
+  zoom: 12                    # Default zoom level (1-18)
+  bounds: [[48.9, 7.9], [49.1, 8.1]]  # [[sw_lat, sw_lng], [ne_lat, ne_lng]]
+
+theme:
+  primary_color: "#0066CC"    # Hex color for branding
+  logo: /static/cities/your-city/logo.png  # Optional logo URL
+
+layers:
+  # CSV Data Source Example
+  - slug: kitas
+    name: Kindergartens
+    name_de: Kindertagesstätten
+    icon: baby-carriage       # mdi icon name (without mdi- prefix)
+    color: "#E91E63"          # Marker color
+    visible: true             # Show by default
+    source:
+      type: csv
+      url: https://your-opendata-portal.de/kitas.csv
+      mapping:
+        name: Name            # Column containing POI name
+        lat: Latitude         # Column containing latitude
+        lng: Longitude        # Column containing longitude
+        address: Address      # Column containing address
+        district: District    # Column containing district/neighborhood
+    attributes:               # Extra fields to display
+      - key: phone
+        label: Phone
+        type: string
+      - key: capacity
+        label: Capacity
+        type: number
+
+  # OpenStreetMap Data Source Example
+  - slug: playgrounds
+    name: Playgrounds
+    icon: child
+    color: "#4CAF50"
+    visible: true
+    source:
+      type: osm
+      query: leisure=playground  # Overpass API query
+    attributes:
+      - key: surface
+        label: Surface
+        type: string
+
+  # GeoJSON Data Source Example
+  - slug: trees
+    name: City Trees
+    icon: tree
+    color: "#2E7D32"
+    visible: false            # Hidden by default (too many markers)
+    source:
+      type: geojson
+      url: https://your-opendata-portal.de/trees.geojson
+
+# District boundaries (optional)
+districts:
+  source: https://your-opendata-portal.de/stadtteile.geojson

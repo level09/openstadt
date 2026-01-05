@@ -1,0 +1,425 @@
+{% extends "map_layout.html" %}
+
+{% block title %}{{ city.name }} - OpenStadt{% endblock %}
+{% block description %}Offene Stadtdaten für {{ city.name }}{% endblock %}
+{% block city_name %}{{ city.name }}{% endblock %}
+
+{% block content %}
+<v-app>
+    <!-- Map Container -->
+    <div id="map-container" class="map-container">
+    <!-- Layer Control Panel -->
+    <div class="layer-panel" :class="{ 'panel-collapsed': !showLayerPanel }">
+        <div class="panel-header" @click="showLayerPanel = !showLayerPanel">
+            <v-icon icon="mdi-layers"></v-icon>
+            <span v-if="showLayerPanel">Ebenen</span>
+            <v-spacer></v-spacer>
+            <v-icon :icon="showLayerPanel ? 'mdi-chevron-left' : 'mdi-chevron-right'"></v-icon>
+        </div>
+
+        <div v-if="showLayerPanel" class="panel-content">
+            <!-- District Filter -->
+            <v-select
+                v-if="districts.length > 0"
+                v-model="selectedDistrict"
+                :items="districtOptions"
+                label="Stadtteil"
+                density="compact"
+                variant="outlined"
+                clearable
+                hide-details
+                class="mb-3"
+            ></v-select>
+
+            <div v-for="layer in layers" :key="layer.id" class="layer-item">
+                <v-checkbox
+                    v-model="visibleLayers"
+                    :value="layer.slug"
+                    :color="layer.color"
+                    density="compact"
+                    hide-details
+                >
+                    <template v-slot:label>
+                        <div class="d-flex align-center">
+                            <span class="layer-dot" :style="{ backgroundColor: layer.color }"></span>
+                            <span class="layer-name">${ layer.name }</span>
+                            <v-chip size="x-small" class="ml-1">${ layer.poiCount || 0 }</v-chip>
+                        </div>
+                    </template>
+                </v-checkbox>
+            </div>
+
+            <!-- POI Counter -->
+            <div class="poi-counter mt-3">
+                <v-icon size="small" icon="mdi-map-marker-multiple"></v-icon>
+                <span>${ visiblePoiCount } sichtbar</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search -->
+    <div class="search-container">
+        <v-text-field
+            v-model="searchQuery"
+            placeholder="Suche..."
+            prepend-inner-icon="mdi-magnify"
+            variant="solo"
+            density="compact"
+            hide-details
+            clearable
+            @input="debouncedSearch"
+            @click:clear="clearSearch"
+        ></v-text-field>
+
+        <v-card v-if="searchResults.length > 0" class="search-results">
+            <v-list density="compact">
+                <v-list-item
+                    v-for="poi in searchResults"
+                    :key="poi.id"
+                    @click="selectPoi(poi)"
+                >
+                    <template v-slot:prepend>
+                        <span class="layer-dot" :style="{ backgroundColor: getLayerColor(poi.layerId) }"></span>
+                    </template>
+                    <v-list-item-title>${ poi.name }</v-list-item-title>
+                    <v-list-item-subtitle>${ poi.address || poi.district }</v-list-item-subtitle>
+                </v-list-item>
+            </v-list>
+        </v-card>
+    </div>
+
+    <!-- Location Button -->
+    <v-btn
+        class="location-btn"
+        icon
+        size="small"
+        @click="locateUser"
+        :loading="locating"
+    >
+        <v-icon icon="mdi-crosshairs-gps"></v-icon>
+    </v-btn>
+
+    <!-- The Map -->
+    <div id="map"></div>
+
+    <!-- POI Detail Panel -->
+    <v-navigation-drawer
+        v-model="showPoiDetail"
+        location="right"
+        width="360"
+        :permanent="showPoiDetail"
+        class="poi-drawer"
+    >
+        <div v-if="selectedPoi" @click.stop>
+            <!-- Header with layer color -->
+            <v-toolbar :color="getLayerColor(selectedPoi.layerId)" density="compact">
+                <v-toolbar-title class="text-white">${ selectedPoi.name }</v-toolbar-title>
+                <v-btn icon @click.stop="showPoiDetail = false" color="white">
+                    <v-icon icon="mdi-close"></v-icon>
+                </v-btn>
+            </v-toolbar>
+
+            <!-- Layer badge -->
+            <div class="pa-3 bg-grey-lighten-4">
+                <v-chip :color="getLayerColor(selectedPoi.layerId)" size="small" label>
+                    ${ getLayerName(selectedPoi.layerId) }
+                </v-chip>
+                <span class="text-caption text-grey ml-2">
+                    ${ getLayerPoiIndex(selectedPoi) } von ${ getLayerPoiCount(selectedPoi.layerId) }
+                </span>
+            </div>
+
+            <!-- Address prominent -->
+            <v-card v-if="selectedPoi.address && selectedPoi.address.trim()" flat class="ma-3 pa-3 bg-blue-lighten-5">
+                <div class="d-flex align-center">
+                    <v-icon icon="mdi-map-marker" color="primary" class="mr-2"></v-icon>
+                    <div>
+                        <div class="font-weight-medium">${ selectedPoi.address }</div>
+                        <div v-if="selectedPoi.district" class="text-caption text-grey">${ selectedPoi.district }</div>
+                    </div>
+                </div>
+            </v-card>
+
+            <!-- Attributes -->
+            <v-list v-if="Object.keys(filteredAttributes(selectedPoi)).length > 0" density="compact">
+                <template v-for="(value, key) in filteredAttributes(selectedPoi)" :key="key">
+                    <v-list-item v-if="value">
+                        <template v-slot:prepend>
+                            <v-icon icon="mdi-information-outline" size="small" color="grey"></v-icon>
+                        </template>
+                        <v-list-item-subtitle>${ formatLabel(key) }</v-list-item-subtitle>
+                        <v-list-item-title>${ formatValue(value) }</v-list-item-title>
+                    </v-list-item>
+                </template>
+            </v-list>
+
+            <!-- Empty state - helpful info -->
+            <v-card v-else flat class="ma-3 pa-3 text-center text-grey">
+                <v-icon icon="mdi-information-outline" size="large" class="mb-2"></v-icon>
+                <div class="text-body-2">Dieser Eintrag stammt aus OpenStreetMap.</div>
+                <div class="text-caption">Weitere Details können auf OSM ergänzt werden.</div>
+            </v-card>
+
+            <!-- Action buttons -->
+            <div class="pa-3">
+                <v-btn
+                    :href="'https://www.google.com/maps/dir/?api=1&destination=' + selectedPoi.lat + ',' + selectedPoi.lng"
+                    target="_blank"
+                    prepend-icon="mdi-directions"
+                    color="primary"
+                    variant="elevated"
+                    class="mr-2"
+                    @click.stop
+                >
+                    Route
+                </v-btn>
+                <v-btn
+                    :href="'https://www.openstreetmap.org/?mlat=' + selectedPoi.lat + '&mlon=' + selectedPoi.lng + '&zoom=18'"
+                    target="_blank"
+                    prepend-icon="mdi-map"
+                    variant="outlined"
+                    @click.stop
+                >
+                    OSM
+                </v-btn>
+            </div>
+        </div>
+    </v-navigation-drawer>
+</div>
+</v-app>
+{% endblock %}
+
+{% block js %}
+<script>
+    const cityData = {{ city.to_dict(include_layers=True) | tojson | safe }};
+
+    const { createApp } = Vue;
+    const { createVuetify } = Vuetify;
+    const vuetify = createVuetify(config.vuetifyConfig);
+
+    const app = createApp({
+        delimiters: config.delimiters,
+        data() {
+            return {
+                city: cityData,
+                layers: cityData.layers || [],
+                visibleLayers: cityData.layers
+                    ?.filter(l => l.visibleByDefault)
+                    .map(l => l.slug) || [],
+                pois: [],
+                districts: [],
+                selectedDistrict: null,
+                markers: {},
+                markerCluster: null,
+                map: null,
+                searchQuery: '',
+                searchResults: [],
+                selectedPoi: null,
+                showPoiDetail: false,
+                showLayerPanel: true,
+                locating: false,
+                searchTimeout: null,
+            };
+        },
+        computed: {
+            districtOptions() {
+                return this.districts.map(d => ({ title: d, value: d }));
+            },
+            visiblePoiCount() {
+                return this.pois.filter(poi => {
+                    const layer = this.layers.find(l => l.id === poi.layerId);
+                    if (!layer || !this.visibleLayers.includes(layer.slug)) return false;
+                    if (this.selectedDistrict && poi.district !== this.selectedDistrict) return false;
+                    return true;
+                }).length;
+            }
+        },
+        watch: {
+            visibleLayers: {
+                handler() {
+                    this.updateMarkers();
+                },
+                deep: true
+            },
+            selectedDistrict() {
+                this.updateMarkers();
+            }
+        },
+        methods: {
+            initMap() {
+                this.map = L.map('map', {
+                    zoomControl: true,
+                }).setView(this.city.center, this.city.defaultZoom);
+
+                L.tileLayer(leafletConfig.tileLayer, {
+                    attribution: leafletConfig.tileAttribution,
+                    maxZoom: leafletConfig.maxZoom,
+                }).addTo(this.map);
+
+                // Initialize marker cluster
+                this.markerCluster = L.markerClusterGroup({
+                    maxClusterRadius: 50,
+                    spiderfyOnMaxZoom: true,
+                    showCoverageOnHover: false,
+                });
+                this.map.addLayer(this.markerCluster);
+
+                this.loadPois();
+            },
+
+            async loadPois() {
+                try {
+                    const response = await axios.get(`/api/v1/cities/${this.city.slug}/pois?per_page=5000`);
+                    this.pois = response.data.items;
+                    // Extract unique districts
+                    this.districts = [...new Set(this.pois.map(p => p.district).filter(Boolean))].sort();
+                    this.updateMarkers();
+                } catch (error) {
+                    console.error('Error loading POIs:', error);
+                }
+            },
+
+            updateMarkers() {
+                this.markerCluster.clearLayers();
+
+                const visiblePois = this.pois.filter(poi => {
+                    const layer = this.layers.find(l => l.id === poi.layerId);
+                    if (!layer || !this.visibleLayers.includes(layer.slug)) return false;
+                    if (this.selectedDistrict && poi.district !== this.selectedDistrict) return false;
+                    return true;
+                });
+
+                visiblePois.forEach(poi => {
+                    const layer = this.layers.find(l => l.id === poi.layerId);
+                    const marker = L.circleMarker([poi.lat, poi.lng], {
+                        radius: 8,
+                        fillColor: layer?.color || '#3388ff',
+                        color: '#fff',
+                        weight: 2,
+                        opacity: 1,
+                        fillOpacity: 0.8,
+                    });
+
+                    marker.bindTooltip(poi.name, { direction: 'top', offset: [0, -10] });
+                    marker.on('click', () => this.selectPoi(poi));
+                    this.markerCluster.addLayer(marker);
+                    this.markers[poi.id] = marker;
+                });
+            },
+
+            selectPoi(poi) {
+                this.selectedPoi = poi;
+                this.showPoiDetail = true;
+                this.searchResults = [];
+                this.searchQuery = '';
+
+                if (this.map) {
+                    this.map.setView([poi.lat, poi.lng], 16);
+                }
+            },
+
+            getLayerColor(layerId) {
+                const layer = this.layers.find(l => l.id === layerId);
+                return layer?.color || '#3388ff';
+            },
+
+            getLayerName(layerId) {
+                const layer = this.layers.find(l => l.id === layerId);
+                return layer?.name || 'Unbekannt';
+            },
+
+            getLayerPoiCount(layerId) {
+                return this.pois.filter(p => p.layerId === layerId).length;
+            },
+
+            getLayerPoiIndex(poi) {
+                const layerPois = this.pois.filter(p => p.layerId === poi.layerId);
+                return layerPois.findIndex(p => p.id === poi.id) + 1;
+            },
+
+            formatLabel(key) {
+                return key.replace(/_/g, ' ').replace(/:/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+            },
+
+            formatValue(value) {
+                if (typeof value === 'boolean') return value ? 'Ja' : 'Nein';
+                if (value === 'yes') return 'Ja';
+                if (value === 'no') return 'Nein';
+                return value;
+            },
+
+            // Filter out redundant OSM tags
+            filteredAttributes(poi) {
+                if (!poi?.attributes) return {};
+                const skipKeys = [
+                    'amenity', 'leisure', 'natural', 'shop', 'tourism', 'building',
+                    'access', 'source', 'created_by', 'type', 'man_made',
+                    'addr:city', 'addr:country', 'addr:postcode'
+                ];
+                const result = {};
+                for (const [key, value] of Object.entries(poi.attributes)) {
+                    if (!skipKeys.includes(key) && value && value !== 'yes' && value !== 'no') {
+                        result[key] = value;
+                    }
+                }
+                return result;
+            },
+
+            debouncedSearch() {
+                clearTimeout(this.searchTimeout);
+                this.searchTimeout = setTimeout(() => this.search(), 300);
+            },
+
+            async search() {
+                if (this.searchQuery.length < 2) {
+                    this.searchResults = [];
+                    return;
+                }
+
+                try {
+                    const response = await axios.get(
+                        `/api/v1/cities/${this.city.slug}/search?q=${encodeURIComponent(this.searchQuery)}`
+                    );
+                    this.searchResults = response.data.items;
+                } catch (error) {
+                    console.error('Search error:', error);
+                }
+            },
+
+            clearSearch() {
+                this.searchQuery = '';
+                this.searchResults = [];
+            },
+
+            locateUser() {
+                if (!navigator.geolocation) return;
+
+                this.locating = true;
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        this.map.setView([latitude, longitude], 15);
+                        L.marker([latitude, longitude], {
+                            icon: L.divIcon({
+                                className: 'user-location-marker',
+                                html: '<div class="pulse"></div>',
+                                iconSize: [20, 20],
+                            })
+                        }).addTo(this.map);
+                        this.locating = false;
+                    },
+                    (error) => {
+                        console.error('Geolocation error:', error);
+                        this.locating = false;
+                    }
+                );
+            }
+        },
+        mounted() {
+            this.initMap();
+        }
+    });
+
+    app.use(vuetify).mount('#app');
+</script>
+{% endblock %}

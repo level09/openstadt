@@ -1,0 +1,86 @@
+# Mannheim City Configuration
+# Load with: uv run flask load-city config/cities/mannheim.yaml
+
+city:
+  slug: mannheim
+  name: Mannheim
+  state: Baden-Württemberg
+  center: [49.4875, 8.4660]
+  zoom: 12
+  bounds: [[49.42, 8.38], [49.56, 8.58]]
+
+theme:
+  primary_color: "#0066CC"
+  logo: /static/cities/mannheim/logo.png
+
+layers:
+  - slug: kitas
+    name: Kindergärten
+    name_de: Kindertagesstätten
+    icon: baby-carriage
+    color: "#E91E63"
+    visible: true
+    source:
+      type: osm
+      query: amenity=kindergarten
+    attributes:
+      - key: operator
+        label: Träger
+        type: string
+      - key: phone
+        label: Telefon
+        type: string
+      - key: website
+        label: Website
+        type: url
+
+  - slug: playgrounds
+    name: Spielplätze
+    icon: child
+    color: "#4CAF50"
+    visible: true
+    source:
+      type: osm
+      query: leisure=playground
+    attributes:
+      - key: surface
+        label: Untergrund
+        type: string
+
+  - slug: schools
+    name: Schulen
+    icon: school
+    color: "#2196F3"
+    visible: true
+    source:
+      type: osm
+      query: amenity=school
+    attributes:
+      - key: operator
+        label: Träger
+        type: string
+
+  - slug: trees
+    name: Stadtbäume
+    icon: tree
+    color: "#2E7D32"
+    visible: false
+    source:
+      type: geojson
+      url: https://opendata.mannheim.de/trees.geojson
+
+  - slug: recycling
+    name: Wertstoffcontainer
+    icon: recycle
+    color: "#795548"
+    visible: true
+    source:
+      type: osm
+      query: amenity=recycling
+    attributes:
+      - key: recycling_type
+        label: Art
+        type: string
+
+districts:
+  source: https://opendata.mannheim.de/stadtteile.geojson

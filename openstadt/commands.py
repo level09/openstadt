@@ -1,0 +1,424 @@
+"""Flask CLI commands for OpenStadt."""
+
+import secrets
+import string
+from pathlib import Path
+
+import click
+from flask import current_app
+from flask.cli import with_appcontext
+from flask_security.utils import hash_password
+from rich.console import Console
+
+from openstadt.extensions import db
+
+console = Console()
+
+
+@click.command("create-db")
+@with_appcontext
+def create_db():
+    """Create all database tables."""
+    db.create_all()
+    console.print("[green]Database tables created successfully.[/green]")
+
+
+@click.command("install")
+@with_appcontext
+def install():
+    """Initial setup: create database and admin user."""
+    from openstadt.user.models import Role, User
+
+    db.create_all()
+    console.print("[green]Database tables created.[/green]")
+
+    # Create admin role if not exists
+    admin_role = db.session.scalars(
+        db.select(Role).where(Role.name == "admin")
+    ).first()
+    if not admin_role:
+        admin_role = Role(name="admin", description="Administrator")
+        db.session.add(admin_role)
+        console.print("[green]Admin role created.[/green]")
+
+    # Check for existing admin
+    admin = db.session.scalars(
+        db.select(User).where(User.email == "admin@openstadt.de")
+    ).first()
+    if admin:
+        console.print("[yellow]Admin user already exists.[/yellow]")
+        return
+
+    # Generate secure password
+    alphabet = string.ascii_letters + string.digits + "!@#$%"
+    password = "".join(secrets.choice(alphabet) for _ in range(16))
+
+    admin = User(
+        email="admin@openstadt.de",
+        name="Administrator",
+        password=hash_password(password),
+        active=True,
+    )
+    admin.roles.append(admin_role)
+    db.session.add(admin)
+    db.session.commit()
+
+    console.print("\n[bold green]Admin user created:[/bold green]")
+    console.print(f"  Email: [cyan]admin@openstadt.de[/cyan]")
+    console.print(f"  Password: [cyan]{password}[/cyan]")
+    console.print("\n[yellow]Please save this password - it won't be shown again.[/yellow]")
+
+
+@click.command("create")
+@click.option("-e", "--email", required=True, help="User email")
+@click.option("-p", "--password", required=True, help="User password")
+@click.option("-n", "--name", default=None, help="User name")
+@with_appcontext
+def create_user(email, password, name):
+    """Create a new user."""
+    from openstadt.user.models import User
+
+    existing = db.session.scalars(db.select(User).where(User.email == email)).first()
+    if existing:
+        console.print(f"[red]User {email} already exists.[/red]")
+        return
+
+    user = User(
+        email=email,
+        name=name,
+        password=hash_password(password),
+        active=True,
+    )
+    db.session.add(user)
+    db.session.commit()
+    console.print(f"[green]User {email} created successfully.[/green]")
+
+
+@click.command("add-role")
+@click.option("-e", "--email", required=True, help="User email")
+@click.option("-r", "--role", required=True, help="Role name")
+@with_appcontext
+def add_role(email, role):
+    """Add a role to a user."""
+    from openstadt.user.models import Role, User
+
+    user = db.session.scalars(db.select(User).where(User.email == email)).first()
+    if not user:
+        console.print(f"[red]User {email} not found.[/red]")
+        return
+
+    role_obj = db.session.scalars(db.select(Role).where(Role.name == role)).first()
+    if not role_obj:
+        role_obj = Role(name=role)
+        db.session.add(role_obj)
+
+    if role_obj not in user.roles:
+        user.roles.append(role_obj)
+        db.session.commit()
+        console.print(f"[green]Role '{role}' added to {email}.[/green]")
+    else:
+        console.print(f"[yellow]User {email} already has role '{role}'.[/yellow]")
+
+
+@click.command("load-city")
+@click.argument("config_file", type=click.Path(exists=True))
+@with_appcontext
+def load_city(config_file):
+    """Load a city from a YAML config file."""
+    import yaml
+
+    from openstadt.api.models import City, Layer
+
+    with open(config_file) as f:
+        config = yaml.safe_load(f)
+
+    city_data = config.get("city", {})
+    slug = city_data.get("slug")
+
+    if not slug:
+        console.print("[red]Config must include city.slug[/red]")
+        return
+
+    # Create or update city
+    city = db.session.scalars(db.select(City).where(City.slug == slug)).first()
+    if not city:
+        city = City(slug=slug)
+
+    city.name = city_data.get("name", slug.title())
+    city.state = city_data.get("state")
+    center = city_data.get("center", [49.4875, 8.4660])
+    city.center_lat = center[0]
+    city.center_lng = center[1]
+    city.default_zoom = city_data.get("zoom", 12)
+    city.bounds = city_data.get("bounds")
+
+    # Theme
+    theme = config.get("theme", {})
+    city.primary_color = theme.get("primary_color", "#0066CC")
+    city.logo_url = theme.get("logo")
+
+    city.config = config
+
+    db.session.add(city)
+    db.session.flush()  # Get city.id
+
+    # Create layers
+    for layer_data in config.get("layers", []):
+        layer_slug = layer_data.get("slug")
+        if not layer_slug:
+            continue
+
+        layer = db.session.scalars(
+            db.select(Layer).where(Layer.city_id == city.id, Layer.slug == layer_slug)
+        ).first()
+        if not layer:
+            layer = Layer(city_id=city.id, slug=layer_slug)
+
+        layer.name = layer_data.get("name", layer_slug.title())
+        layer.name_de = layer_data.get("name_de")
+        layer.icon = layer_data.get("icon", "map-marker")
+        layer.color = layer_data.get("color", "#3388ff")
+        layer.visible_by_default = layer_data.get("visible", True)
+
+        source = layer_data.get("source", {})
+        layer.source_type = source.get("type")
+        layer.source_url = source.get("url")
+        layer.source_config = source.get("mapping") or source.get("query")
+
+        layer.schema = layer_data.get("attributes")
+
+        db.session.add(layer)
+
+    db.session.commit()
+    console.print(f"[green]City '{city.name}' loaded with {len(config.get('layers', []))} layers.[/green]")
+
+
+@click.command("list-cities")
+@with_appcontext
+def list_cities():
+    """List all cities."""
+    from openstadt.api.models import City
+
+    cities = db.session.scalars(db.select(City).order_by(City.name)).all()
+    if not cities:
+        console.print("[yellow]No cities found.[/yellow]")
+        return
+
+    for city in cities:
+        poi_count = len(city.pois)
+        layer_count = len(city.layers)
+        console.print(
+            f"[cyan]{city.slug}[/cyan] - {city.name} ({layer_count} layers, {poi_count} POIs)"
+        )
+
+
+@click.command("import-csv")
+@click.argument("city_slug")
+@click.argument("layer_slug")
+@click.argument("csv_file", type=click.Path(exists=True))
+@click.option("--name-col", default="name", help="Column for POI name")
+@click.option("--lat-col", default="lat", help="Column for latitude")
+@click.option("--lng-col", default="lng", help="Column for longitude")
+@click.option("--address-col", default="address", help="Column for address")
+@click.option("--district-col", default="district", help="Column for district")
+@with_appcontext
+def import_csv(city_slug, layer_slug, csv_file, name_col, lat_col, lng_col, address_col, district_col):
+    """Import POIs from a CSV file."""
+    import csv
+
+    from openstadt.api.models import City, Layer, POI
+
+    city = db.session.scalars(db.select(City).where(City.slug == city_slug)).first()
+    if not city:
+        console.print(f"[red]City '{city_slug}' not found.[/red]")
+        return
+
+    layer = db.session.scalars(
+        db.select(Layer).where(Layer.city_id == city.id, Layer.slug == layer_slug)
+    ).first()
+    if not layer:
+        console.print(f"[red]Layer '{layer_slug}' not found in {city.name}.[/red]")
+        return
+
+    with open(csv_file, encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        count = 0
+        for row in reader:
+            try:
+                lat = float(row.get(lat_col, 0))
+                lng = float(row.get(lng_col, 0))
+            except (ValueError, TypeError):
+                continue
+
+            if not lat or not lng:
+                continue
+
+            name = row.get(name_col, "Unknown")
+
+            # Store extra columns as attributes
+            skip_cols = {name_col, lat_col, lng_col, address_col, district_col}
+            attributes = {k: v for k, v in row.items() if k not in skip_cols and v}
+
+            poi = POI(
+                city_id=city.id,
+                layer_id=layer.id,
+                name=name,
+                lat=lat,
+                lng=lng,
+                address=row.get(address_col),
+                district=row.get(district_col),
+                attributes=attributes if attributes else None,
+            )
+            db.session.add(poi)
+            count += 1
+
+        db.session.commit()
+        console.print(f"[green]Imported {count} POIs to {layer.name}.[/green]")
+
+
+@click.command("sync-osm")
+@click.argument("city_slug")
+@click.argument("layer_slug")
+@with_appcontext
+def sync_osm(city_slug, layer_slug):
+    """Sync POIs from OpenStreetMap Overpass API."""
+    import httpx
+
+    from openstadt.api.models import City, Layer, POI
+
+    city = db.session.scalars(db.select(City).where(City.slug == city_slug)).first()
+    if not city:
+        console.print(f"[red]City '{city_slug}' not found.[/red]")
+        return
+
+    layer = db.session.scalars(
+        db.select(Layer).where(Layer.city_id == city.id, Layer.slug == layer_slug)
+    ).first()
+    if not layer:
+        console.print(f"[red]Layer '{layer_slug}' not found in {city.name}.[/red]")
+        return
+
+    if layer.source_type != "osm":
+        console.print(f"[red]Layer '{layer_slug}' is not an OSM layer.[/red]")
+        return
+
+    osm_query = layer.source_config
+    if not osm_query:
+        console.print(f"[red]No OSM query configured for layer.[/red]")
+        return
+
+    # Build Overpass query
+    bounds = city.bounds or [
+        [city.center_lat - 0.1, city.center_lng - 0.1],
+        [city.center_lat + 0.1, city.center_lng + 0.1],
+    ]
+    bbox = f"{bounds[0][0]},{bounds[0][1]},{bounds[1][0]},{bounds[1][1]}"
+
+    query = f"""
+    [out:json][timeout:60];
+    (
+      node[{osm_query}]({bbox});
+      way[{osm_query}]({bbox});
+    );
+    out center;
+    """
+
+    console.print(f"[yellow]Fetching from Overpass API...[/yellow]")
+
+    # Try multiple Overpass API endpoints
+    endpoints = [
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass-api.de/api/interpreter",
+    ]
+    response = None
+    for endpoint in endpoints:
+        try:
+            console.print(f"[yellow]Trying {endpoint}...[/yellow]")
+            response = httpx.post(
+                endpoint,
+                data={"data": query},
+                timeout=90,
+            )
+            response.raise_for_status()
+            break
+        except Exception as e:
+            console.print(f"[red]Failed: {e}[/red]")
+            continue
+
+    if not response:
+        console.print("[red]All Overpass endpoints failed.[/red]")
+        return
+
+    try:
+        response.raise_for_status()
+        data = response.json()
+    except Exception as e:
+        console.print(f"[red]Error fetching OSM data: {e}[/red]")
+        return
+
+    # Clear existing POIs for this layer (full sync)
+    db.session.execute(db.delete(POI).where(POI.layer_id == layer.id))
+
+    count = 0
+    for element in data.get("elements", []):
+        if element["type"] == "node":
+            lat, lng = element["lat"], element["lon"]
+        elif "center" in element:
+            lat, lng = element["center"]["lat"], element["center"]["lon"]
+        else:
+            continue
+
+        tags = element.get("tags", {})
+
+        # Generate meaningful name from OSM tags
+        name = tags.get("name")
+        if not name:
+            name = tags.get("operator")
+        if not name:
+            # Try to build name from type tags
+            if tags.get("amenity") == "recycling":
+                recycling_types = [k.split(":")[1] for k in tags.keys() if k.startswith("recycling:") and tags[k] == "yes"]
+                if recycling_types:
+                    name = f"Recycling: {', '.join(recycling_types[:3])}"
+                else:
+                    name = "Recyclingcontainer"
+            elif tags.get("leisure") == "playground":
+                name = tags.get("description", "Spielplatz")
+            elif tags.get("amenity") == "kindergarten":
+                name = "Kindergarten"
+            elif tags.get("amenity") == "school":
+                name = tags.get("school:type", "Schule")
+            elif tags.get("natural") == "tree":
+                species = tags.get("species:de") or tags.get("species") or tags.get("genus:de") or tags.get("genus")
+                name = species if species else "Baum"
+            else:
+                # Fallback: use layer name + address or ID
+                addr = tags.get("addr:street", "")
+                if addr:
+                    name = f"{layer.name} - {addr}"
+                else:
+                    name = f"{layer.name} #{count + 1}"
+
+        # Build address only if we have street info
+        street = tags.get("addr:street", "")
+        housenumber = tags.get("addr:housenumber", "")
+        address = f"{street} {housenumber}".strip() if street else None
+
+        poi = POI(
+            city_id=city.id,
+            layer_id=layer.id,
+            name=name,
+            lat=lat,
+            lng=lng,
+            address=address,
+            source_id=str(element["id"]),
+            attributes={k: v for k, v in tags.items() if k not in ("name", "addr:street", "addr:housenumber")},
+        )
+        db.session.add(poi)
+        count += 1
+
+    from datetime import datetime
+    layer.last_sync = datetime.now()
+    db.session.commit()
+
+    console.print(f"[green]Synced {count} POIs from OpenStreetMap.[/green]")

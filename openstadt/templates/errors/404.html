@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>404 - Nicht gefunden</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/static/css/vuetify.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.x/css/materialdesignicons.min.css">
+</head>
+<body>
+<div id="app">
+    <v-app>
+        <v-main class="d-flex align-center justify-center" style="min-height: 100vh;">
+            <v-container class="text-center">
+                <v-icon icon="mdi-map-marker-question" size="80" color="grey" class="mb-4"></v-icon>
+                <h1 class="text-h3 mb-4">404</h1>
+                <p class="text-h6 text-medium-emphasis mb-6">
+                    Die angeforderte Seite wurde nicht gefunden.
+                </p>
+                <v-btn href="/" color="primary" prepend-icon="mdi-home">
+                    Zur Startseite
+                </v-btn>
+            </v-container>
+        </v-main>
+    </v-app>
+</div>
+<script src="/static/js/vue.min.js"></script>
+<script src="/static/js/vuetify.min.js"></script>
+<script>
+    Vue.createApp({}).use(Vuetify.createVuetify()).mount('#app');
+</script>
+</body>
+</html>

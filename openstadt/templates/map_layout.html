@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}OpenStadt{% endblock %}</title>
+    <meta name="description" content="{% block description %}Offene Stadtdaten für alle{% endblock %}">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+
+    <!-- Vuetify -->
+    <link rel="stylesheet" href="/static/css/vuetify.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@7.x/css/materialdesignicons.min.css">
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+
+    <!-- OpenStadt -->
+    <link rel="stylesheet" href="/static/css/app.css">
+
+    {% block css %}{% endblock %}
+</head>
+
+<body class="map-page">
+<!-- Vue app container - content block includes the full v-app -->
+<div id="app">
+    {% block content %}{% endblock %}
+</div>
+
+<!-- Leaflet -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<!-- Vue & Vuetify -->
+<script src="/static/js/vue.min.js"></script>
+<script src="/static/js/config.js"></script>
+<script src="/static/js/vuetify.min.js"></script>
+<script src="/static/js/axios.min.js"></script>
+
+{% block js %}{% endblock %}
+</body>
+</html>

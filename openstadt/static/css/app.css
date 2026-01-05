@@ -1,0 +1,258 @@
+/* OpenStadt - Civic Data Platform Styles */
+
+/* Base */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: 'Roboto', sans-serif;
+}
+
+/* Map Layout */
+.map-page {
+    height: 100vh;
+    overflow: hidden;
+}
+
+.map-page .v-application {
+    height: 100vh;
+}
+
+.map-page .v-application__wrap {
+    min-height: 100vh;
+}
+
+.map-main {
+    height: 100%;
+    padding: 0 !important;
+}
+
+.map-container {
+    position: relative;
+    height: 100%;
+    width: 100%;
+}
+
+#map {
+    height: 100%;
+    width: 100%;
+    z-index: 1;
+}
+
+/* Layer Panel */
+.layer-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1000;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    max-width: 280px;
+    transition: all 0.3s ease;
+}
+
+.layer-panel.panel-collapsed {
+    max-width: 48px;
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    cursor: pointer;
+    gap: 8px;
+    font-weight: 500;
+}
+
+.panel-content {
+    padding: 0 12px 12px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.layer-item {
+    margin-bottom: 4px;
+}
+
+.layer-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.layer-name {
+    font-size: 14px;
+}
+
+.poi-counter {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #666;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+}
+
+/* Search */
+.search-container {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    width: 90%;
+    max-width: 400px;
+}
+
+@media (min-width: 600px) {
+    .search-container {
+        left: 320px;
+        transform: none;
+        width: auto;
+        min-width: 300px;
+    }
+}
+
+.search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-top: 4px;
+}
+
+/* Location Button */
+.location-btn {
+    position: absolute !important;
+    bottom: 100px;
+    right: 10px;
+    z-index: 1000;
+    background: white !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* User Location Marker */
+.user-location-marker {
+    background: transparent;
+}
+
+.user-location-marker .pulse {
+    width: 20px;
+    height: 20px;
+    background: #4285f4;
+    border: 3px solid white;
+    border-radius: 50%;
+    box-shadow: 0 0 0 rgba(66, 133, 244, 0.4);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.4);
+    }
+    70% {
+        box-shadow: 0 0 0 20px rgba(66, 133, 244, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(66, 133, 244, 0);
+    }
+}
+
+/* Leaflet Cluster Customization */
+.marker-cluster-small {
+    background-color: rgba(0, 102, 204, 0.6);
+}
+.marker-cluster-small div {
+    background-color: rgba(0, 102, 204, 0.8);
+}
+
+.marker-cluster-medium {
+    background-color: rgba(0, 102, 204, 0.7);
+}
+.marker-cluster-medium div {
+    background-color: rgba(0, 102, 204, 0.9);
+}
+
+.marker-cluster-large {
+    background-color: rgba(0, 102, 204, 0.8);
+}
+.marker-cluster-large div {
+    background-color: rgba(0, 102, 204, 1);
+}
+
+.marker-cluster {
+    background-clip: padding-box;
+    border-radius: 20px;
+}
+
+.marker-cluster div {
+    width: 30px;
+    height: 30px;
+    margin-left: 5px;
+    margin-top: 5px;
+    text-align: center;
+    border-radius: 15px;
+    font: 12px "Roboto", sans-serif;
+    color: white;
+    font-weight: bold;
+    line-height: 30px;
+}
+
+/* Dashboard Cards */
+.stat-card {
+    border-left: 4px solid;
+}
+
+.stat-card.primary {
+    border-left-color: #0066CC;
+}
+
+.stat-card.success {
+    border-left-color: #388E3C;
+}
+
+.stat-card.warning {
+    border-left-color: #F57C00;
+}
+
+/* Vuetify Overrides */
+.v-navigation-drawer--right {
+    z-index: 1001 !important;
+}
+
+.poi-drawer {
+    position: fixed !important;
+    z-index: 1002 !important;
+}
+
+.poi-drawer .v-navigation-drawer__content {
+    overflow-y: auto;
+}
+
+/* Responsive */
+@media (max-width: 599px) {
+    .layer-panel {
+        top: auto;
+        bottom: 10px;
+        left: 10px;
+        right: auto;
+        max-width: calc(100% - 80px);
+    }
+
+    .panel-content {
+        max-height: 40vh;
+    }
+
+    .location-btn {
+        bottom: 10px;
+    }
+}
