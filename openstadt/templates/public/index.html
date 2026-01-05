@@ -1,77 +1,1446 @@
-{% extends "layout.html" %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>OpenStadt - Offene Stadtdaten für Deutschland</title>
+    <meta name="description" content="Sind öffentliche Einrichtungen gerecht verteilt? OpenStadt macht Infrastruktur-Ungleichheit sichtbar.">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
 
-{% block title %}OpenStadt - Offene Stadtdaten{% endblock %}
+    <!-- Fonts: Bold Neo-Brutalist -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
 
-{% block content %}
-<v-container class="py-8">
-    <v-row justify="center">
-        <v-col cols="12" md="8" class="text-center">
-            <v-icon icon="mdi-city" size="64" color="primary" class="mb-4"></v-icon>
-            <h1 class="text-h3 font-weight-bold mb-4">OpenStadt</h1>
-            <p class="text-h6 text-medium-emphasis mb-8">
-                Offene Stadtdaten für alle. Finde Kitas, Spielplätze, Bäume und mehr in deiner Stadt.
-            </p>
-        </v-col>
-    </v-row>
+    <!-- Tabler Icons - Clean & Consistent -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 
-    {% if cities %}
-    <v-row justify="center">
-        <v-col cols="12" md="10" lg="8">
-            <h2 class="text-h5 mb-4">Verfügbare Städte</h2>
-            <v-row>
+    <style>
+        /* ============================================
+           OPENSTADT NEO-BRUTALIST DESIGN SYSTEM
+           German Civic Colors: Black, Red, Gold
+           ============================================ */
+
+        :root {
+            /* German Civic Palette */
+            --black: #000000;
+            --white: #FFFFFF;
+            --red: #DD0000;
+            --gold: #FFCC00;
+            --cream: #FFF8E7;
+            --grey: #F5F5F5;
+            --dark-grey: #333333;
+
+            /* Functional */
+            --success: #22C55E;
+            --warning: #F59E0B;
+            --error: #EF4444;
+
+            /* Brutalist Specs */
+            --border: 3px solid var(--black);
+            --border-thick: 4px solid var(--black);
+            --shadow: 6px 6px 0 var(--black);
+            --shadow-sm: 4px 4px 0 var(--black);
+            --shadow-hover: 8px 8px 0 var(--black);
+            --radius: 0;
+
+            /* Typography */
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-mono: 'Space Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-display);
+            background: var(--cream);
+            color: var(--black);
+            line-height: 1.6;
+            font-size: 17px;
+            font-weight: 500;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ============================================
+           NAVBAR - Brutalist Fixed Header
+           ============================================ */
+
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: var(--gold);
+            border-bottom: var(--border-thick);
+            padding: 0 24px;
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            color: var(--black);
+        }
+
+        .navbar-logo {
+            width: 48px;
+            height: 48px;
+            background: var(--black);
+            border: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .navbar-logo span {
+            color: var(--gold);
+        }
+
+        .navbar-title {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+
+        .navbar-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-link {
+            padding: 12px 20px;
+            text-decoration: none;
+            color: var(--black);
+            font-weight: 700;
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border: 2px solid transparent;
+            transition: all 0.1s ease;
+        }
+
+        .nav-link:hover {
+            background: var(--black);
+            color: var(--gold);
+        }
+
+        .nav-link.btn-primary {
+            background: var(--black);
+            color: var(--white);
+            border: var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .nav-link.btn-primary:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: var(--shadow);
+        }
+
+        /* Mobile nav */
+        .nav-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 28px;
+            cursor: pointer;
+        }
+
+        @media (max-width: 768px) {
+            .navbar-links {
+                display: none;
+            }
+            .nav-toggle {
+                display: block;
+            }
+        }
+
+        /* ============================================
+           HERO SECTION
+           ============================================ */
+
+        .hero {
+            min-height: 100vh;
+            padding: 120px 24px 80px;
+            display: flex;
+            align-items: center;
+            background: var(--cream);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Decorative grid background */
+        .hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image:
+                linear-gradient(var(--black) 1px, transparent 1px),
+                linear-gradient(90deg, var(--black) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: 0.03;
+        }
+
+        .hero-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 80px;
+            align-items: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        @media (max-width: 1024px) {
+            .hero-container {
+                grid-template-columns: 1fr;
+                gap: 48px;
+                text-align: center;
+            }
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--black);
+            color: var(--gold);
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 24px;
+        }
+
+        .hero-title {
+            font-size: clamp(48px, 8vw, 96px);
+            font-weight: 700;
+            line-height: 0.95;
+            letter-spacing: -3px;
+            margin-bottom: 24px;
+        }
+
+        .hero-title .highlight {
+            color: var(--red);
+            position: relative;
+        }
+
+        .hero-subtitle {
+            font-size: clamp(20px, 2.5vw, 26px);
+            color: var(--dark-grey);
+            max-width: 560px;
+            margin-bottom: 40px;
+            line-height: 1.7;
+            font-weight: 500;
+        }
+
+        @media (max-width: 1024px) {
+            .hero-subtitle {
+                margin: 0 auto 40px;
+            }
+        }
+
+        .hero-cta {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 1024px) {
+            .hero-cta {
+                justify-content: center;
+            }
+        }
+
+        /* Brutalist Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 18px 36px;
+            font-family: var(--font-display);
+            font-size: 17px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            text-decoration: none;
+            border: var(--border-thick);
+            cursor: pointer;
+            transition: all 0.1s ease;
+        }
+
+        .btn-primary {
+            background: var(--red);
+            color: var(--white);
+            box-shadow: var(--shadow);
+        }
+
+        .btn-primary:hover {
+            transform: translate(-4px, -4px);
+            box-shadow: 10px 10px 0 var(--black);
+        }
+
+        .btn-secondary {
+            background: var(--white);
+            color: var(--black);
+            box-shadow: var(--shadow);
+        }
+
+        .btn-secondary:hover {
+            background: var(--gold);
+            transform: translate(-4px, -4px);
+            box-shadow: 10px 10px 0 var(--black);
+        }
+
+        /* Hero Visual */
+        .hero-visual {
+            position: relative;
+        }
+
+        .hero-card {
+            background: var(--white);
+            border: var(--border-thick);
+            box-shadow: var(--shadow);
+            padding: 32px;
+            position: relative;
+        }
+
+        .hero-map-placeholder {
+            aspect-ratio: 4/3;
+            background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+            border: var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animated map dots */
+        .map-dot {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: var(--red);
+            border: 2px solid var(--black);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .map-dot:nth-child(1) { top: 20%; left: 30%; animation-delay: 0s; }
+        .map-dot:nth-child(2) { top: 40%; left: 60%; animation-delay: 0.3s; }
+        .map-dot:nth-child(3) { top: 60%; left: 25%; animation-delay: 0.6s; }
+        .map-dot:nth-child(4) { top: 35%; left: 45%; animation-delay: 0.9s; background: var(--gold); }
+        .map-dot:nth-child(5) { top: 70%; left: 70%; animation-delay: 1.2s; }
+        .map-dot:nth-child(6) { top: 25%; left: 75%; animation-delay: 1.5s; background: var(--success); }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.7; }
+        }
+
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .stat-box {
+            background: var(--grey);
+            border: var(--border);
+            padding: 16px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            line-height: 1;
+        }
+
+        .stat-number.red { color: var(--red); }
+        .stat-number.gold { color: #B8860B; }
+
+        .stat-label {
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+            color: var(--dark-grey);
+        }
+
+        /* Floating badge */
+        .floating-badge {
+            position: absolute;
+            top: -20px;
+            right: -20px;
+            background: var(--gold);
+            border: var(--border-thick);
+            padding: 12px 20px;
+            font-weight: 700;
+            font-size: 14px;
+            transform: rotate(3deg);
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* ============================================
+           PROBLEM SECTION
+           ============================================ */
+
+        .section {
+            padding: 100px 24px;
+        }
+
+        .section-dark {
+            background: var(--black);
+            color: var(--white);
+        }
+
+        .section-gold {
+            background: var(--gold);
+        }
+
+        .section-red {
+            background: var(--red);
+            color: var(--white);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            margin-bottom: 64px;
+        }
+
+        .section-label {
+            display: inline-block;
+            background: var(--gold);
+            color: var(--black);
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+        }
+
+        .section-dark .section-label {
+            background: var(--red);
+            color: var(--white);
+        }
+
+        .section-title {
+            font-size: clamp(36px, 5vw, 64px);
+            font-weight: 700;
+            line-height: 1.1;
+            letter-spacing: -2px;
+        }
+
+        /* Problem Cards */
+        .problem-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .problem-card {
+            background: var(--white);
+            border: var(--border-thick);
+            box-shadow: var(--shadow);
+            padding: 32px;
+            color: var(--black);
+        }
+
+        .problem-icon {
+            width: 64px;
+            height: 64px;
+            background: var(--red);
+            border: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: var(--white);
+            margin-bottom: 20px;
+        }
+
+        .problem-card h3 {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .problem-card p {
+            color: var(--dark-grey);
+            line-height: 1.7;
+            font-size: 16px;
+        }
+
+        /* ============================================
+           FEATURES / SOLUTION SECTION
+           ============================================ */
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 32px;
+        }
+
+        @media (max-width: 768px) {
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .feature-card {
+            background: var(--white);
+            border: var(--border-thick);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            transition: all 0.15s ease;
+        }
+
+        .feature-card:hover {
+            transform: translate(-4px, -4px);
+            box-shadow: 10px 10px 0 var(--black);
+        }
+
+        .feature-image {
+            height: 200px;
+            background: var(--grey);
+            border-bottom: var(--border-thick);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 64px;
+            color: var(--black);
+        }
+
+        .feature-image.red { background: var(--red); color: var(--white); }
+        .feature-image.gold { background: var(--gold); }
+
+        .feature-content {
+            padding: 28px;
+        }
+
+        .feature-tag {
+            display: inline-block;
+            background: var(--black);
+            color: var(--white);
+            padding: 4px 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .feature-card h3 {
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .feature-card p {
+            color: var(--dark-grey);
+            line-height: 1.7;
+            font-size: 16px;
+        }
+
+        /* ============================================
+           EQUITY SCORE EXPLAINER
+           ============================================ */
+
+        .equity-demo {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 48px;
+            align-items: center;
+        }
+
+        @media (max-width: 768px) {
+            .equity-demo {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .equity-visual {
+            background: var(--white);
+            border: var(--border-thick);
+            box-shadow: var(--shadow);
+            padding: 32px;
+        }
+
+        .equity-bar {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .equity-bar-label {
+            width: 120px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .equity-bar-track {
+            flex: 1;
+            height: 32px;
+            background: var(--grey);
+            border: var(--border);
+            position: relative;
+        }
+
+        .equity-bar-fill {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            color: var(--white);
+        }
+
+        .equity-bar-fill.danger { background: var(--red); width: 35%; }
+        .equity-bar-fill.warning { background: var(--warning); width: 65%; color: var(--black); }
+        .equity-bar-fill.success { background: var(--success); width: 120%; max-width: 100%; }
+
+        .equity-legend {
+            display: flex;
+            gap: 24px;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: var(--border);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+
+        .legend-dot {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--black);
+        }
+
+        .legend-dot.red { background: var(--red); }
+        .legend-dot.yellow { background: var(--warning); }
+        .legend-dot.green { background: var(--success); }
+
+        .equity-text h3 {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            line-height: 1.2;
+        }
+
+        .equity-text p {
+            font-size: 18px;
+            line-height: 1.7;
+            margin-bottom: 16px;
+        }
+
+        .equity-formula {
+            background: var(--black);
+            color: var(--gold);
+            font-family: var(--font-mono);
+            padding: 20px 24px;
+            font-size: 14px;
+            border: var(--border-thick);
+            margin-top: 24px;
+        }
+
+        /* ============================================
+           CITIES SECTION
+           ============================================ */
+
+        .cities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+        }
+
+        .city-card {
+            background: var(--white);
+            border: var(--border-thick);
+            box-shadow: var(--shadow);
+            padding: 32px;
+            text-decoration: none;
+            color: var(--black);
+            transition: all 0.15s ease;
+            display: block;
+        }
+
+        .city-card:hover {
+            transform: translate(-4px, -4px);
+            box-shadow: 10px 10px 0 var(--black);
+            background: var(--gold);
+        }
+
+        .city-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .city-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--black);
+            border: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: var(--gold);
+        }
+
+        .city-name {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .city-state {
+            font-size: 14px;
+            color: var(--dark-grey);
+        }
+
+        .city-stats {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .city-stat {
+            background: var(--grey);
+            border: var(--border);
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .city-card:hover .city-stat {
+            background: var(--white);
+        }
+
+        /* Empty state */
+        .empty-state {
+            background: var(--white);
+            border: var(--border-thick);
+            box-shadow: var(--shadow);
+            padding: 48px;
+            text-align: center;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .empty-state h3 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            color: var(--dark-grey);
+        }
+
+        /* ============================================
+           OPEN SOURCE SECTION
+           ============================================ */
+
+        .opensource-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 32px;
+        }
+
+        @media (max-width: 768px) {
+            .opensource-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .opensource-main {
+            background: var(--white);
+            border: var(--border-thick);
+            box-shadow: var(--shadow);
+            padding: 40px;
+        }
+
+        .opensource-main h3 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .opensource-main p {
+            font-size: 18px;
+            line-height: 1.7;
+            margin-bottom: 24px;
+            color: var(--dark-grey);
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .tech-badge {
+            background: var(--black);
+            color: var(--white);
+            padding: 10px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            border: var(--border);
+        }
+
+        .opensource-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .sidebar-card {
+            background: var(--gold);
+            border: var(--border-thick);
+            box-shadow: var(--shadow);
+            padding: 24px;
+        }
+
+        .sidebar-card h4 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+        }
+
+        .sidebar-card .value {
+            font-size: 24px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+        }
+
+        /* ============================================
+           CTA SECTION
+           ============================================ */
+
+        .cta-section {
+            text-align: center;
+        }
+
+        .cta-section .section-title {
+            margin-bottom: 16px;
+        }
+
+        .cta-section p {
+            font-size: 20px;
+            margin-bottom: 40px;
+            opacity: 0.9;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .cta-section .btn-primary {
+            background: var(--white);
+            color: var(--black);
+        }
+
+        .cta-section .btn-secondary {
+            background: transparent;
+            color: var(--white);
+            border-color: var(--white);
+        }
+
+        .cta-section .btn-secondary:hover {
+            background: var(--white);
+            color: var(--red);
+        }
+
+        /* ============================================
+           FOOTER
+           ============================================ */
+
+        .footer {
+            background: var(--black);
+            color: var(--white);
+            padding: 60px 24px 40px;
+            border-top: 4px solid var(--gold);
+        }
+
+        .footer-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 48px;
+        }
+
+        @media (max-width: 768px) {
+            .footer-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 32px;
+            }
+        }
+
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .footer-brand .navbar-logo {
+            background: var(--gold);
+        }
+
+        .footer-brand .navbar-logo span {
+            color: var(--black);
+        }
+
+        .footer-brand span:last-child {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .footer-tagline {
+            color: #999;
+            line-height: 1.6;
+        }
+
+        .footer h4 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            color: var(--gold);
+        }
+
+        .footer-links {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 12px;
+        }
+
+        .footer-links a {
+            color: #ccc;
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+
+        .footer-links a:hover {
+            color: var(--gold);
+        }
+
+        .footer-bottom {
+            max-width: 1200px;
+            margin: 48px auto 0;
+            padding-top: 24px;
+            border-top: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .footer-badges {
+            display: flex;
+            gap: 12px;
+        }
+
+        .footer-badge {
+            background: #222;
+            border: 1px solid #444;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-family: var(--font-mono);
+        }
+
+        /* ============================================
+           UTILITIES
+           ============================================ */
+
+        .text-center { text-align: center; }
+        .mb-0 { margin-bottom: 0; }
+        .mt-4 { margin-top: 32px; }
+
+        /* Marquee animation for badges */
+        @keyframes marquee {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .marquee-container {
+            overflow: hidden;
+            background: var(--black);
+            border-top: var(--border-thick);
+            border-bottom: var(--border-thick);
+            padding: 16px 0;
+        }
+
+        .marquee {
+            display: flex;
+            animation: marquee 30s linear infinite;
+            width: fit-content;
+        }
+
+        .marquee-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 48px;
+            color: var(--white);
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+
+        .marquee-item .ti {
+            color: var(--gold);
+            font-size: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <a href="/" class="navbar-brand">
+            <div class="navbar-logo"><i class="ti ti-building"></i></div>
+            <span class="navbar-title">OpenStadt</span>
+        </a>
+
+        <div class="navbar-links">
+            <a href="#features" class="nav-link">Features</a>
+            <a href="#cities" class="nav-link">Städte</a>
+            <a href="https://github.com/level09/openstadt" target="_blank" class="nav-link">
+                <i class="ti ti-brand-github"></i> GitHub
+            </a>
+            {% if current_user.is_authenticated %}
+            <a href="/dashboard" class="nav-link btn-primary">Dashboard</a>
+            {% else %}
+            <a href="/login" class="nav-link btn-primary">Anmelden</a>
+            {% endif %}
+        </div>
+
+        <button class="nav-toggle"><i class="ti ti-menu-2"></i></button>
+    </nav>
+
+    <!-- HERO -->
+    <section class="hero">
+        <div class="hero-container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <i class="ti ti-circle-check"></i>
+                    Open Source · Made in Germany
+                </div>
+
+                <h1 class="hero-title">
+                    Infrastruktur-<br><span class="highlight">Gerechtigkeit</span><br>sichtbar machen
+                </h1>
+
+                <p class="hero-subtitle">
+                    Sind Spielplätze, Kitas und Schulen gerecht verteilt? OpenStadt analysiert offene Stadtdaten und zeigt, welche Stadtteile unterversorgt sind.
+                </p>
+
+                <div class="hero-cta">
+                    {% if cities %}
+                    <a href="/{{ cities[0].slug }}" class="btn btn-primary">
+                        <i class="ti ti-map"></i>
+                        Karte erkunden
+                    </a>
+                    {% endif %}
+                    <a href="https://github.com/level09/openstadt" target="_blank" class="btn btn-secondary">
+                        <i class="ti ti-brand-github"></i>
+                        Auf GitHub
+                    </a>
+                </div>
+            </div>
+
+            <div class="hero-visual">
+                <div class="hero-card">
+                    <div class="floating-badge">Live Daten</div>
+
+                    <div class="hero-map-placeholder">
+                        <div class="map-dot"></div>
+                        <div class="map-dot"></div>
+                        <div class="map-dot"></div>
+                        <div class="map-dot"></div>
+                        <div class="map-dot"></div>
+                        <div class="map-dot"></div>
+                    </div>
+
+                    <div class="hero-stats">
+                        <div class="stat-box">
+                            <div class="stat-number">{% if cities %}{{ cities|sum(attribute='pois')|length if cities else 0 }}{% else %}1,639{% endif %}</div>
+                            <div class="stat-label">Einrichtungen</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-number gold">55</div>
+                            <div class="stat-label">Stadtteile</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="stat-number red">20</div>
+                            <div class="stat-label">Unterversorgt</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- MARQUEE -->
+    <div class="marquee-container">
+        <div class="marquee">
+            <div class="marquee-item"><i class="ti ti-baby-carriage"></i> Kindergärten</div>
+            <div class="marquee-item"><i class="ti ti-mood-kid"></i> Spielplätze</div>
+            <div class="marquee-item"><i class="ti ti-school"></i> Schulen</div>
+            <div class="marquee-item"><i class="ti ti-recycle"></i> Recycling</div>
+            <div class="marquee-item"><i class="ti ti-tree"></i> Stadtbäume</div>
+            <div class="marquee-item"><i class="ti ti-building-hospital"></i> Gesundheit</div>
+            <div class="marquee-item"><i class="ti ti-baby-carriage"></i> Kindergärten</div>
+            <div class="marquee-item"><i class="ti ti-mood-kid"></i> Spielplätze</div>
+            <div class="marquee-item"><i class="ti ti-school"></i> Schulen</div>
+            <div class="marquee-item"><i class="ti ti-recycle"></i> Recycling</div>
+            <div class="marquee-item"><i class="ti ti-tree"></i> Stadtbäume</div>
+            <div class="marquee-item"><i class="ti ti-building-hospital"></i> Gesundheit</div>
+        </div>
+    </div>
+
+    <!-- PROBLEM SECTION -->
+    <section class="section section-dark">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">Das Problem</span>
+                <h2 class="section-title">Städte wissen nicht,<br>wo die Lücken sind</h2>
+            </div>
+
+            <div class="problem-grid">
+                <div class="problem-card">
+                    <div class="problem-icon">
+                        <i class="ti ti-database-off"></i>
+                    </div>
+                    <h3>Verstreute Daten</h3>
+                    <p>Informationen über öffentliche Einrichtungen sind über verschiedene Ämter und Formate verteilt.</p>
+                </div>
+
+                <div class="problem-card">
+                    <div class="problem-icon">
+                        <i class="ti ti-eye-off"></i>
+                    </div>
+                    <h3>Unsichtbare Ungleichheit</h3>
+                    <p>Welche Stadtteile haben zu wenig Spielplätze? Ohne Analyse bleibt das verborgen.</p>
+                </div>
+
+                <div class="problem-card">
+                    <div class="problem-icon">
+                        <i class="ti ti-user-question"></i>
+                    </div>
+                    <h3>Keine Transparenz</h3>
+                    <p>Bürger können nicht einfach prüfen, ob ihr Viertel benachteiligt wird.</p>
+                </div>
+
+                <div class="problem-card">
+                    <div class="problem-icon">
+                        <i class="ti ti-scale-unbalanced"></i>
+                    </div>
+                    <h3>Kein Vergleich</h3>
+                    <p>Ohne standardisierte Metriken fehlt die Grundlage für faire Ressourcenverteilung.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- FEATURES SECTION -->
+    <section id="features" class="section">
+        <div class="container">
+            <div class="section-header text-center">
+                <span class="section-label">Die Lösung</span>
+                <h2 class="section-title">OpenStadt macht's sichtbar</h2>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-image">
+                        <i class="ti ti-map-pin-filled"></i>
+                    </div>
+                    <div class="feature-content">
+                        <span class="feature-tag">Interaktive Karte</span>
+                        <h3>Alle Einrichtungen auf einen Blick</h3>
+                        <p>Filtere nach Kategorie, suche nach Adressen, oder aktiviere "In meiner Nähe" um lokale Infrastruktur zu entdecken.</p>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-image red">
+                        <i class="ti ti-chart-bar"></i>
+                    </div>
+                    <div class="feature-content">
+                        <span class="feature-tag">Analyse Dashboard</span>
+                        <h3>Equity Score für jeden Stadtteil</h3>
+                        <p>Welche Viertel sind unterversorgt? Das Dashboard zeigt es mit klaren Zahlen und visuellen Vergleichen.</p>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-image gold">
+                        <i class="ti ti-cloud-download"></i>
+                    </div>
+                    <div class="feature-content">
+                        <span class="feature-tag">Offene Daten</span>
+                        <h3>Direkt aus OpenStreetMap</h3>
+                        <p>Automatischer Sync mit OSM. Keine manuellen Importe nötig – immer aktuelle Daten.</p>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-image">
+                        <i class="ti ti-settings-automation"></i>
+                    </div>
+                    <div class="feature-content">
+                        <span class="feature-tag">Einfache Konfiguration</span>
+                        <h3>Eine Codebasis, viele Städte</h3>
+                        <p>YAML-Konfiguration für jede Stadt. Keine Programmierung nötig um neue Städte hinzuzufügen.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- EQUITY EXPLAINER -->
+    <section class="section section-gold">
+        <div class="container">
+            <div class="equity-demo">
+                <div class="equity-visual">
+                    <h4 style="margin-bottom: 24px; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Beispiel: Spielplätze pro Stadtteil</h4>
+
+                    <div class="equity-bar">
+                        <span class="equity-bar-label">Neckarstadt</span>
+                        <div class="equity-bar-track">
+                            <div class="equity-bar-fill danger">35%</div>
+                        </div>
+                    </div>
+
+                    <div class="equity-bar">
+                        <span class="equity-bar-label">Lindenhof</span>
+                        <div class="equity-bar-track">
+                            <div class="equity-bar-fill warning">65%</div>
+                        </div>
+                    </div>
+
+                    <div class="equity-bar">
+                        <span class="equity-bar-label">Feudenheim</span>
+                        <div class="equity-bar-track">
+                            <div class="equity-bar-fill success">120%</div>
+                        </div>
+                    </div>
+
+                    <div class="equity-legend">
+                        <div class="legend-item">
+                            <span class="legend-dot red"></span>
+                            <span>Unter 50% = Unterversorgt</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-dot green"></span>
+                            <span>100% = Durchschnitt</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="equity-text">
+                    <h3>Der Equity Score erklärt</h3>
+                    <p>Jeder Stadtteil bekommt einen Score basierend auf dem Stadtdurchschnitt. 100% bedeutet: genau im Durchschnitt.</p>
+                    <p>Stadtteile unter 50% sind <strong>stark unterversorgt</strong> – sie haben weniger als die Hälfte des Durchschnitts.</p>
+
+                    <div class="equity-formula">
+                        Equity = (Einrichtungen im Stadtteil / Stadtdurchschnitt) × 100
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CITIES SECTION -->
+    <section id="cities" class="section">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-label">Verfügbare Städte</span>
+                <h2 class="section-title">Jetzt erkunden</h2>
+            </div>
+
+            {% if cities %}
+            <div class="cities-grid">
                 {% for city in cities %}
-                <v-col cols="12" sm="6" md="4">
-                    <v-card
-                        :href="'/{{ city.slug }}'"
-                        hover
-                        class="city-card"
-                    >
-                        <v-card-item>
-                            <template v-slot:prepend>
-                                <v-avatar color="primary" size="48">
-                                    <v-icon icon="mdi-city" size="24"></v-icon>
-                                </v-avatar>
-                            </template>
-                            <v-card-title>{{ city.name }}</v-card-title>
-                            <v-card-subtitle>{{ city.state or 'Deutschland' }}</v-card-subtitle>
-                        </v-card-item>
-                        <v-card-text>
-                            <v-chip size="small" class="mr-1">
-                                {{ city.layers|length }} Ebenen
-                            </v-chip>
-                            <v-chip size="small">
-                                {{ city.pois|length }} Orte
-                            </v-chip>
-                        </v-card-text>
-                    </v-card>
-                </v-col>
+                <a href="/{{ city.slug }}" class="city-card">
+                    <div class="city-header">
+                        <div class="city-icon">
+                            <i class="ti ti-building"></i>
+                        </div>
+                        <div>
+                            <div class="city-name">{{ city.name }}</div>
+                            <div class="city-state">{{ city.state or 'Deutschland' }}</div>
+                        </div>
+                    </div>
+                    <div class="city-stats">
+                        <span class="city-stat">{{ city.layers|length }} Ebenen</span>
+                        <span class="city-stat">{{ city.pois|length }} Orte</span>
+                    </div>
+                </a>
                 {% endfor %}
-            </v-row>
-        </v-col>
-    </v-row>
-    {% else %}
-    <v-row justify="center">
-        <v-col cols="12" md="6" class="text-center">
-            <v-alert type="info" variant="tonal">
-                Noch keine Städte konfiguriert. Melden Sie sich an, um eine Stadt hinzuzufügen.
-            </v-alert>
-        </v-col>
-    </v-row>
-    {% endif %}
-</v-container>
-{% endblock %}
+            </div>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">🏗️</div>
+                <h3>Noch keine Städte konfiguriert</h3>
+                <p>Melden Sie sich an oder folgen Sie der Dokumentation um eine Stadt hinzuzufügen.</p>
+            </div>
+            {% endif %}
+        </div>
+    </section>
 
-{% block js %}
-<script>
-    const { createApp } = Vue;
-    const { createVuetify } = Vuetify;
-    const vuetify = createVuetify(config.vuetifyConfig);
+    <!-- OPEN SOURCE -->
+    <section class="section section-dark">
+        <div class="container">
+            <div class="opensource-grid">
+                <div class="opensource-main">
+                    <h3>100% Open Source</h3>
+                    <p>OpenStadt ist freie Software unter MIT-Lizenz. Städte, Entwickler und Civic-Tech-Gruppen können den Code nutzen, anpassen und verbessern.</p>
 
-    const app = createApp({
-        mixins: [layoutMixin],
-        delimiters: config.delimiters,
-    });
+                    <a href="https://github.com/level09/openstadt" target="_blank" class="btn btn-primary" style="margin-top: 8px;">
+                        <i class="ti ti-brand-github"></i>
+                        Repository ansehen
+                    </a>
 
-    app.use(vuetify).mount('#app');
-</script>
-{% endblock %}
+                    <div class="tech-stack">
+                        <span class="tech-badge">Python</span>
+                        <span class="tech-badge">Flask</span>
+                        <span class="tech-badge">Vue 3</span>
+                        <span class="tech-badge">Vuetify</span>
+                        <span class="tech-badge">Leaflet</span>
+                        <span class="tech-badge">PostgreSQL</span>
+                    </div>
+                </div>
+
+                <div class="opensource-sidebar">
+                    <div class="sidebar-card">
+                        <h4>Lizenz</h4>
+                        <div class="value">MIT</div>
+                    </div>
+                    <div class="sidebar-card">
+                        <h4>Datenquelle</h4>
+                        <div class="value">OpenStreetMap</div>
+                    </div>
+                    <div class="sidebar-card">
+                        <h4>Status</h4>
+                        <div class="value">Aktiv</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="section section-red cta-section">
+        <div class="container">
+            <h2 class="section-title">Deine Stadt dabei?</h2>
+            <p>Starte mit OpenStadt in wenigen Minuten. Kostenlos, offen, für alle.</p>
+
+            <div class="cta-buttons">
+                <a href="https://github.com/level09/openstadt#quick-start" target="_blank" class="btn btn-primary">
+                    <i class="ti ti-rocket"></i>
+                    Jetzt starten
+                </a>
+                <a href="https://github.com/level09/openstadt/issues" target="_blank" class="btn btn-secondary">
+                    <i class="ti ti-message"></i>
+                    Feedback geben
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="footer-grid">
+            <div>
+                <div class="footer-brand">
+                    <div class="navbar-logo"><i class="ti ti-building"></i></div>
+                    <span>OpenStadt</span>
+                </div>
+                <p class="footer-tagline">Offene Stadtdaten für alle. Ein Civic-Tech-Projekt für mehr Transparenz in deutschen Städten.</p>
+            </div>
+
+            <div>
+                <h4>Projekt</h4>
+                <ul class="footer-links">
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#cities">Städte</a></li>
+                    <li><a href="https://github.com/level09/openstadt" target="_blank">GitHub</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4>Ressourcen</h4>
+                <ul class="footer-links">
+                    <li><a href="https://github.com/level09/openstadt#readme" target="_blank">Dokumentation</a></li>
+                    <li><a href="https://github.com/level09/openstadt#api-endpoints" target="_blank">API</a></li>
+                    <li><a href="https://openstreetmap.org" target="_blank">OpenStreetMap</a></li>
+                </ul>
+            </div>
+
+            <div>
+                <h4>Community</h4>
+                <ul class="footer-links">
+                    <li><a href="https://github.com/level09/openstadt/issues" target="_blank">Issues</a></li>
+                    <li><a href="https://codefor.de" target="_blank">Code for Germany</a></li>
+                    <li><a href="https://okfn.de" target="_blank">OKF Deutschland</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <span>© 2024 OpenStadt · MIT License</span>
+            <div class="footer-badges">
+                <span class="footer-badge">v1.0.0</span>
+                <span class="footer-badge">Made in 🇩🇪</span>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

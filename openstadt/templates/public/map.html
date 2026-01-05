@@ -32,21 +32,19 @@
             ></v-select>
 
             <div v-for="layer in layers" :key="layer.id" class="layer-item">
-                <v-checkbox
-                    v-model="visibleLayers"
-                    :value="layer.slug"
-                    :color="layer.color"
-                    density="compact"
-                    hide-details
-                >
-                    <template v-slot:label>
-                        <div class="d-flex align-center">
-                            <span class="layer-dot" :style="{ backgroundColor: layer.color }"></span>
-                            <span class="layer-name">${ layer.name }</span>
-                            <v-chip size="x-small" class="ml-1">${ layer.poiCount || 0 }</v-chip>
-                        </div>
-                    </template>
-                </v-checkbox>
+                <label class="layer-checkbox">
+                    <input
+                        type="checkbox"
+                        :value="layer.slug"
+                        :checked="visibleLayers.includes(layer.slug)"
+                        @change="toggleLayer(layer.slug, $event.target.checked)"
+                        class="layer-checkbox-input"
+                    >
+                    <span class="layer-checkbox-box" :style="{ '--layer-color': layer.color }"></span>
+                    <span class="layer-dot" :style="{ backgroundColor: layer.color }"></span>
+                    <span class="layer-name">${ layer.name }</span>
+                    <span class="layer-count">${ layer.poiCount || 0 }</span>
+                </label>
             </div>
 
             <!-- POI Counter -->
@@ -55,6 +53,13 @@
                 <span>${ visiblePoiCount } sichtbar</span>
             </div>
         </div>
+    </div>
+
+    <!-- City Switcher -->
+    <div class="city-switcher">
+        <select class="city-select" @change="switchCity($event.target.value)" :value="city.slug">
+            <option v-for="c in allCities" :key="c.slug" :value="c.slug">${ c.name }</option>
+        </select>
     </div>
 
     <!-- Search -->
@@ -132,55 +137,97 @@
             </v-toolbar>
 
             <!-- Layer badge -->
-            <div class="pa-3 bg-grey-lighten-4">
-                <v-chip :color="getLayerColor(selectedPoi.layerId)" size="small" label>
-                    ${ getLayerName(selectedPoi.layerId) }
-                </v-chip>
-                <span class="text-caption text-grey ml-2">
-                    ${ getLayerPoiIndex(selectedPoi) } von ${ getLayerPoiCount(selectedPoi.layerId) }
-                </span>
+            <div class="pa-3 bg-grey-lighten-4 d-flex align-center justify-space-between">
+                <div>
+                    <v-chip :color="getLayerColor(selectedPoi.layerId)" size="small" label>
+                        ${ getLayerName(selectedPoi.layerId) }
+                    </v-chip>
+                    <span class="text-caption text-grey ml-2">
+                        ${ getLayerPoiIndex(selectedPoi) } von ${ getLayerPoiCount(selectedPoi.layerId) }
+                    </span>
+                </div>
+                <v-btn icon size="small" variant="text" @click.stop="sharePoi">
+                    <v-icon icon="mdi-share-variant" size="small"></v-icon>
+                    <v-tooltip activator="parent" location="bottom">Teilen</v-tooltip>
+                </v-btn>
             </div>
 
-            <!-- Address prominent -->
-            <v-card v-if="selectedPoi.address && selectedPoi.address.trim()" flat class="ma-3 pa-3 bg-blue-lighten-5">
+            <!-- Location info - always show -->
+            <v-card flat class="ma-3 pa-3" style="background: #E3F2FD; border: 2px solid #1976D2;">
+                <div class="d-flex align-center mb-2" v-if="selectedPoi.address && selectedPoi.address.trim()">
+                    <v-icon icon="mdi-map-marker" color="primary" class="mr-2" size="small"></v-icon>
+                    <div class="font-weight-medium">${ selectedPoi.address }</div>
+                </div>
+                <div class="d-flex align-center mb-2" v-if="selectedPoi.district">
+                    <v-icon icon="mdi-home-city" color="primary" class="mr-2" size="small"></v-icon>
+                    <div>Stadtteil: <strong>${ selectedPoi.district }</strong></div>
+                </div>
                 <div class="d-flex align-center">
-                    <v-icon icon="mdi-map-marker" color="primary" class="mr-2"></v-icon>
-                    <div>
-                        <div class="font-weight-medium">${ selectedPoi.address }</div>
-                        <div v-if="selectedPoi.district" class="text-caption text-grey">${ selectedPoi.district }</div>
-                    </div>
+                    <v-icon icon="mdi-crosshairs-gps" color="primary" class="mr-2" size="small"></v-icon>
+                    <div class="text-caption">${ selectedPoi.lat.toFixed(5) }, ${ selectedPoi.lng.toFixed(5) }</div>
                 </div>
             </v-card>
 
-            <!-- Attributes -->
-            <v-list v-if="Object.keys(filteredAttributes(selectedPoi)).length > 0" density="compact">
-                <template v-for="(value, key) in filteredAttributes(selectedPoi)" :key="key">
-                    <v-list-item v-if="value">
-                        <template v-slot:prepend>
-                            <v-icon icon="mdi-information-outline" size="small" color="grey"></v-icon>
-                        </template>
-                        <v-list-item-subtitle>${ formatLabel(key) }</v-list-item-subtitle>
-                        <v-list-item-title>${ formatValue(value) }</v-list-item-title>
-                    </v-list-item>
-                </template>
-            </v-list>
+            <!-- Quick facts for common attributes -->
+            <div class="px-3" v-if="hasQuickFacts(selectedPoi)">
+                <div class="d-flex flex-wrap ga-2 mb-3">
+                    <v-chip v-if="getAttr(selectedPoi, 'wheelchair') === 'yes'" size="small" color="success" variant="tonal">
+                        <v-icon start icon="mdi-wheelchair" size="small"></v-icon> Barrierefrei
+                    </v-chip>
+                    <v-chip v-if="getAttr(selectedPoi, 'wheelchair') === 'no'" size="small" color="error" variant="tonal">
+                        <v-icon start icon="mdi-wheelchair" size="small"></v-icon> Nicht barrierefrei
+                    </v-chip>
+                    <v-chip v-if="getAttr(selectedPoi, 'lit') === 'yes'" size="small" color="amber" variant="tonal">
+                        <v-icon start icon="mdi-lightbulb" size="small"></v-icon> Beleuchtet
+                    </v-chip>
+                    <v-chip v-if="getAttr(selectedPoi, 'fee') === 'no' || getAttr(selectedPoi, 'fee') === 'no'" size="small" color="success" variant="tonal">
+                        <v-icon start icon="mdi-currency-eur-off" size="small"></v-icon> Kostenlos
+                    </v-chip>
+                    <v-chip v-if="getAttr(selectedPoi, 'surface')" size="small" variant="tonal">
+                        <v-icon start icon="mdi-texture" size="small"></v-icon> ${ formatValue(getAttr(selectedPoi, 'surface')) }
+                    </v-chip>
+                    <v-chip v-if="getAttr(selectedPoi, 'operator')" size="small" variant="tonal">
+                        <v-icon start icon="mdi-domain" size="small"></v-icon> ${ getAttr(selectedPoi, 'operator') }
+                    </v-chip>
+                </div>
+            </div>
 
-            <!-- Empty state - helpful info -->
-            <v-card v-else flat class="ma-3 pa-3 text-center text-grey">
-                <v-icon icon="mdi-information-outline" size="large" class="mb-2"></v-icon>
-                <div class="text-body-2">Dieser Eintrag stammt aus OpenStreetMap.</div>
-                <div class="text-caption">Weitere Details können auf OSM ergänzt werden.</div>
-            </v-card>
+            <!-- Detailed Attributes -->
+            <v-expansion-panels v-if="Object.keys(filteredAttributes(selectedPoi)).length > 0" variant="accordion" class="mx-3 mb-3">
+                <v-expansion-panel>
+                    <v-expansion-panel-title class="text-body-2">
+                        <v-icon icon="mdi-database" size="small" class="mr-2"></v-icon>
+                        Alle Details (${ Object.keys(filteredAttributes(selectedPoi)).length })
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                        <v-list density="compact" class="pa-0">
+                            <template v-for="(value, key) in filteredAttributes(selectedPoi)" :key="key">
+                                <v-list-item v-if="value" class="px-0">
+                                    <v-list-item-subtitle class="text-caption">${ formatLabel(key) }</v-list-item-subtitle>
+                                    <v-list-item-title class="text-body-2">${ formatValue(value) }</v-list-item-title>
+                                </v-list-item>
+                            </template>
+                        </v-list>
+                    </v-expansion-panel-text>
+                </v-expansion-panel>
+            </v-expansion-panels>
+
+            <!-- Data source note -->
+            <div class="mx-3 mb-3 pa-2 rounded text-caption text-grey" style="background: #F5F5F5;">
+                <v-icon icon="mdi-database-outline" size="x-small" class="mr-1"></v-icon>
+                Daten: OpenStreetMap
+                <span v-if="selectedPoi.sourceId"> · ID: ${ selectedPoi.sourceId }</span>
+            </div>
 
             <!-- Action buttons -->
-            <div class="pa-3">
+            <div class="pa-3 d-flex ga-2">
                 <v-btn
                     :href="'https://www.google.com/maps/dir/?api=1&destination=' + selectedPoi.lat + ',' + selectedPoi.lng"
                     target="_blank"
                     prepend-icon="mdi-directions"
                     color="primary"
                     variant="elevated"
-                    class="mr-2"
+                    size="small"
                     @click.stop
                 >
                     Route
@@ -190,9 +237,21 @@
                     target="_blank"
                     prepend-icon="mdi-map"
                     variant="outlined"
+                    size="small"
                     @click.stop
                 >
                     OSM
+                </v-btn>
+                <v-btn
+                    v-if="selectedPoi.sourceId"
+                    :href="'https://www.openstreetmap.org/node/' + selectedPoi.sourceId"
+                    target="_blank"
+                    prepend-icon="mdi-pencil"
+                    variant="text"
+                    size="small"
+                    @click.stop
+                >
+                    Bearbeiten
                 </v-btn>
             </div>
         </div>
@@ -204,6 +263,7 @@
 {% block js %}
 <script>
     const cityData = {{ city.to_dict(include_layers=True) | tojson | safe }};
+    const allCitiesData = {{ all_cities | tojson | safe }};
 
     const { createApp } = Vue;
     const { createVuetify } = Vuetify;
@@ -214,6 +274,8 @@
         data() {
             return {
                 city: cityData,
+                allCities: allCitiesData,
+                selectedCity: cityData.slug,
                 layers: cityData.layers || [],
                 visibleLayers: cityData.layers
                     ?.filter(l => l.visibleByDefault)
@@ -304,12 +366,12 @@
                 visiblePois.forEach(poi => {
                     const layer = this.layers.find(l => l.id === poi.layerId);
                     const marker = L.circleMarker([poi.lat, poi.lng], {
-                        radius: 8,
-                        fillColor: layer?.color || '#3388ff',
-                        color: '#fff',
-                        weight: 2,
+                        radius: 9,
+                        fillColor: layer?.color || '#DD0000',
+                        color: '#000',
+                        weight: 3,
                         opacity: 1,
-                        fillOpacity: 0.8,
+                        fillOpacity: 0.9,
                     });
 
                     marker.bindTooltip(poi.name, { direction: 'top', offset: [0, -10] });
@@ -366,7 +428,8 @@
                 const skipKeys = [
                     'amenity', 'leisure', 'natural', 'shop', 'tourism', 'building',
                     'access', 'source', 'created_by', 'type', 'man_made',
-                    'addr:city', 'addr:country', 'addr:postcode'
+                    'addr:city', 'addr:country', 'addr:postcode',
+                    'wheelchair', 'lit', 'fee', 'surface', 'operator'
                 ];
                 const result = {};
                 for (const [key, value] of Object.entries(poi.attributes)) {
@@ -375,6 +438,30 @@
                     }
                 }
                 return result;
+            },
+
+            getAttr(poi, key) {
+                return poi?.attributes?.[key] || null;
+            },
+
+            hasQuickFacts(poi) {
+                if (!poi?.attributes) return false;
+                const quickKeys = ['wheelchair', 'lit', 'fee', 'surface', 'operator'];
+                return quickKeys.some(k => poi.attributes[k]);
+            },
+
+            sharePoi() {
+                const url = `${window.location.origin}/${this.city.slug}/poi/${this.selectedPoi.id}`;
+                if (navigator.share) {
+                    navigator.share({
+                        title: this.selectedPoi.name,
+                        text: `${this.selectedPoi.name} - ${this.getLayerName(this.selectedPoi.layerId)}`,
+                        url: url
+                    });
+                } else {
+                    navigator.clipboard.writeText(url);
+                    alert('Link kopiert!');
+                }
             },
 
             debouncedSearch() {
@@ -401,6 +488,25 @@
             clearSearch() {
                 this.searchQuery = '';
                 this.searchResults = [];
+            },
+
+            switchCity(slug) {
+                if (slug && slug !== this.city.slug) {
+                    window.location.assign('/' + slug);
+                }
+            },
+
+            toggleLayer(slug, checked) {
+                if (checked) {
+                    if (!this.visibleLayers.includes(slug)) {
+                        this.visibleLayers.push(slug);
+                    }
+                } else {
+                    const index = this.visibleLayers.indexOf(slug);
+                    if (index > -1) {
+                        this.visibleLayers.splice(index, 1);
+                    }
+                }
             },
 
             locateUser() {

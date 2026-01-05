@@ -624,3 +624,234 @@ def _point_in_polygon(x, y, geometry):
         j = i
 
     return inside
+
+
+@click.command("sync-all")
+@click.option("--city", "-c", default=None, help="Sync only this city (slug)")
+@click.option("--skip-load", is_flag=True, help="Skip loading city configs")
+@with_appcontext
+def sync_all(city, skip_load):
+    """
+    Load all city configs and sync all OSM data.
+
+    Examples:
+        flask sync-all                  # Load & sync all cities
+        flask sync-all -c berlin        # Only sync Berlin
+        flask sync-all --skip-load      # Skip config loading, just sync OSM
+    """
+    import yaml
+    from openstadt.api.models import City, Layer, POI
+    import httpx
+
+    config_dir = Path("config/cities")
+    if not config_dir.exists():
+        console.print(f"[red]Config directory not found: {config_dir}[/red]")
+        return
+
+    # Find all city configs (exclude template)
+    config_files = [f for f in config_dir.glob("*.yaml") if not f.name.startswith("_")]
+
+    if not config_files:
+        console.print("[yellow]No city configs found.[/yellow]")
+        return
+
+    console.print(f"[bold]Found {len(config_files)} city configs[/bold]\n")
+
+    for config_file in sorted(config_files):
+        with open(config_file) as f:
+            config = yaml.safe_load(f)
+
+        city_data = config.get("city", {})
+        slug = city_data.get("slug")
+
+        if not slug:
+            continue
+
+        # Filter by city if specified
+        if city and slug != city:
+            continue
+
+        console.print(f"[bold cyan]{'='*50}[/bold cyan]")
+        console.print(f"[bold cyan]{city_data.get('name', slug)}[/bold cyan]")
+        console.print(f"[bold cyan]{'='*50}[/bold cyan]")
+
+        # Step 1: Load city config
+        if not skip_load:
+            console.print(f"\n[yellow]Loading config...[/yellow]")
+            _load_city_config(config)
+            console.print(f"[green]✓ City config loaded[/green]")
+
+        # Step 2: Sync OSM layers
+        city_obj = db.session.scalars(db.select(City).where(City.slug == slug)).first()
+        if not city_obj:
+            console.print(f"[red]City not found in database[/red]")
+            continue
+
+        layers = db.session.scalars(
+            db.select(Layer).where(Layer.city_id == city_obj.id, Layer.source_type == "osm")
+        ).all()
+
+        for layer in layers:
+            console.print(f"\n[yellow]Syncing {layer.name}...[/yellow]")
+            count = _sync_osm_layer(city_obj, layer)
+            if count >= 0:
+                console.print(f"[green]✓ {layer.name}: {count} POIs[/green]")
+            else:
+                console.print(f"[red]✗ {layer.name}: sync failed[/red]")
+
+        console.print()
+
+    console.print("[bold green]Done![/bold green]")
+
+
+def _load_city_config(config):
+    """Internal: Load city from config dict."""
+    from openstadt.api.models import City, Layer
+
+    city_data = config.get("city", {})
+    slug = city_data.get("slug")
+
+    city = db.session.scalars(db.select(City).where(City.slug == slug)).first()
+    if not city:
+        city = City(slug=slug)
+
+    city.name = city_data.get("name", slug.title())
+    city.state = city_data.get("state")
+    center = city_data.get("center", [49.4875, 8.4660])
+    city.center_lat = center[0]
+    city.center_lng = center[1]
+    city.default_zoom = city_data.get("zoom", 12)
+    city.bounds = city_data.get("bounds")
+
+    theme = config.get("theme", {})
+    city.primary_color = theme.get("primary_color", "#0066CC")
+    city.logo_url = theme.get("logo")
+    city.config = config
+
+    db.session.add(city)
+    db.session.flush()
+
+    for layer_data in config.get("layers", []):
+        layer_slug = layer_data.get("slug")
+        if not layer_slug:
+            continue
+
+        layer = db.session.scalars(
+            db.select(Layer).where(Layer.city_id == city.id, Layer.slug == layer_slug)
+        ).first()
+        if not layer:
+            layer = Layer(city_id=city.id, slug=layer_slug)
+
+        layer.name = layer_data.get("name", layer_slug.title())
+        layer.name_de = layer_data.get("name_de")
+        layer.icon = layer_data.get("icon", "map-marker")
+        layer.color = layer_data.get("color", "#3388ff")
+        layer.visible_by_default = layer_data.get("visible", True)
+
+        source = layer_data.get("source", {})
+        layer.source_type = source.get("type")
+        layer.source_url = source.get("url")
+        layer.source_config = source.get("mapping") or source.get("query")
+        layer.schema = layer_data.get("attributes")
+
+        db.session.add(layer)
+
+    db.session.commit()
+
+
+def _sync_osm_layer(city, layer):
+    """Internal: Sync a single OSM layer. Returns POI count or -1 on error."""
+    import httpx
+    from openstadt.api.models import POI
+
+    osm_query = layer.source_config
+    if not osm_query:
+        return -1
+
+    bounds = city.bounds or [
+        [city.center_lat - 0.1, city.center_lng - 0.1],
+        [city.center_lat + 0.1, city.center_lng + 0.1],
+    ]
+    bbox = f"{bounds[0][0]},{bounds[0][1]},{bounds[1][0]},{bounds[1][1]}"
+
+    query = f"""
+    [out:json][timeout:60];
+    (
+      node[{osm_query}]({bbox});
+      way[{osm_query}]({bbox});
+    );
+    out center;
+    """
+
+    endpoints = [
+        "https://overpass.kumi.systems/api/interpreter",
+        "https://overpass-api.de/api/interpreter",
+    ]
+
+    response = None
+    for endpoint in endpoints:
+        try:
+            response = httpx.post(endpoint, data={"data": query}, timeout=90)
+            response.raise_for_status()
+            break
+        except Exception:
+            continue
+
+    if not response:
+        return -1
+
+    try:
+        data = response.json()
+    except Exception:
+        return -1
+
+    # Clear existing POIs
+    db.session.execute(db.delete(POI).where(POI.layer_id == layer.id))
+
+    count = 0
+    for element in data.get("elements", []):
+        if element["type"] == "node":
+            lat, lng = element["lat"], element["lon"]
+        elif "center" in element:
+            lat, lng = element["center"]["lat"], element["center"]["lon"]
+        else:
+            continue
+
+        tags = element.get("tags", {})
+        name = tags.get("name") or tags.get("operator")
+
+        if not name:
+            if tags.get("amenity") == "recycling":
+                recycling_types = [k.split(":")[1] for k in tags.keys() if k.startswith("recycling:") and tags[k] == "yes"]
+                name = f"Recycling: {', '.join(recycling_types[:3])}" if recycling_types else "Recyclingcontainer"
+            elif tags.get("leisure") == "playground":
+                name = tags.get("description", "Spielplatz")
+            elif tags.get("amenity") == "kindergarten":
+                name = "Kindergarten"
+            elif tags.get("amenity") == "school":
+                name = tags.get("school:type", "Schule")
+            else:
+                name = f"{layer.name} #{count + 1}"
+
+        street = tags.get("addr:street", "")
+        housenumber = tags.get("addr:housenumber", "")
+        address = f"{street} {housenumber}".strip() if street else None
+
+        poi = POI(
+            city_id=city.id,
+            layer_id=layer.id,
+            name=name,
+            lat=lat,
+            lng=lng,
+            address=address,
+            source_id=str(element["id"]),
+            attributes={k: v for k, v in tags.items() if k not in ("name", "addr:street", "addr:housenumber")},
+        )
+        db.session.add(poi)
+        count += 1
+
+    from datetime import datetime
+    layer.last_sync = datetime.now()
+    db.session.commit()
+
+    return count

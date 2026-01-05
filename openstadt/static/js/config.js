@@ -1,40 +1,49 @@
 /**
- * OpenStadt - Civic Data Platform Configuration
- * Blue/Green civic-focused color palette
+ * OpenStadt - Neo-Brutalist Design System
+ * German Civic Colors: Black, Red, Gold
  */
 
 const config = {
     // Vue delimiters - avoid conflict with Jinja2
     delimiters: ['${', '}'],
 
-    // Vuetify configuration
+    // Vuetify configuration with Brutalist theme
     vuetifyConfig: {
         defaults: {
             VTextField: {
-                variant: 'outlined'
+                variant: 'outlined',
+                rounded: 0
             },
             VSelect: {
-                variant: 'outlined'
+                variant: 'outlined',
+                rounded: 0
             },
             VTextarea: {
-                variant: 'outlined'
+                variant: 'outlined',
+                rounded: 0
             },
             VCombobox: {
-                variant: 'outlined'
+                variant: 'outlined',
+                rounded: 0
             },
             VChip: {
-                size: 'small'
+                size: 'small',
+                rounded: 0
             },
             VCard: {
                 elevation: 0,
-                rounded: 'lg'
+                rounded: 0
             },
             VMenu: {
                 offset: 10
             },
             VBtn: {
                 variant: 'elevated',
-                size: 'small'
+                size: 'small',
+                rounded: 0
+            },
+            VAlert: {
+                rounded: 0
             },
             VDataTableServer: {
                 itemsPerPage: 25,
@@ -42,39 +51,57 @@ const config = {
             }
         },
         theme: {
-            defaultTheme: window.__settings__?.dark ? 'dark' : 'light',
+            defaultTheme: 'brutalist',
             themes: {
+                brutalist: {
+                    dark: false,
+                    colors: {
+                        // German Civic Palette
+                        primary: '#DD0000',      // German Red
+                        secondary: '#FFCC00',    // German Gold
+                        accent: '#000000',       // Black
+                        error: '#DD0000',
+                        info: '#3B82F6',
+                        success: '#22C55E',
+                        warning: '#F59E0B',
+                        background: '#FFF8E7',   // Cream
+                        surface: '#FFFFFF',
+                        'surface-light': '#F5F5F5',
+                        'on-surface': '#000000',
+                        'on-primary': '#FFFFFF',
+                        'on-secondary': '#000000',
+                    }
+                },
                 light: {
                     dark: false,
                     colors: {
-                        // Civic blue theme
-                        primary: '#0066CC',      // City Blue
-                        secondary: '#2E7D32',    // Green (nature)
-                        accent: '#00ACC1',       // Cyan
-                        error: '#D32F2F',
-                        info: '#1976D2',
-                        success: '#388E3C',
-                        warning: '#F57C00',
-                        background: '#FAFAFA',
+                        primary: '#DD0000',
+                        secondary: '#FFCC00',
+                        accent: '#000000',
+                        error: '#DD0000',
+                        info: '#3B82F6',
+                        success: '#22C55E',
+                        warning: '#F59E0B',
+                        background: '#FFF8E7',
                         surface: '#FFFFFF',
                         'surface-light': '#F5F5F5',
-                        'on-surface': '#212121',
+                        'on-surface': '#000000',
                     }
                 },
                 dark: {
                     dark: true,
                     colors: {
-                        primary: '#42A5F5',
-                        secondary: '#66BB6A',
-                        accent: '#26C6DA',
-                        error: '#EF5350',
-                        info: '#29B6F6',
-                        success: '#66BB6A',
-                        warning: '#FFA726',
-                        background: '#121212',
-                        surface: '#1E1E1E',
-                        'surface-light': '#2D2D2D',
-                        'on-surface': '#E0E0E0',
+                        primary: '#EF4444',
+                        secondary: '#FFD700',
+                        accent: '#FFFFFF',
+                        error: '#EF4444',
+                        info: '#60A5FA',
+                        success: '#4ADE80',
+                        warning: '#FBBF24',
+                        background: '#0A0A0A',
+                        surface: '#171717',
+                        'surface-light': '#262626',
+                        'on-surface': '#FFFFFF',
                     }
                 }
             }
@@ -90,7 +117,7 @@ const leafletConfig = {
     minZoom: 8,
 };
 
-// Layer icons mapping (FontAwesome to Mdi)
+// Layer icons mapping
 const layerIcons = {
     'baby-carriage': 'mdi-baby-carriage',
     'child': 'mdi-human-child',

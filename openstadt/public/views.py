@@ -27,7 +27,10 @@ def city_map(slug):
     if not city:
         return render_template("errors/404.html"), 404
 
-    return render_template("public/map.html", city=city)
+    # Pass all cities for the city switcher (simplified list)
+    all_cities = db.session.scalars(db.select(City).order_by(City.name)).all()
+    cities_list = [{"slug": c.slug, "name": c.name} for c in all_cities]
+    return render_template("public/map.html", city=city, all_cities=cities_list)
 
 
 @public.route("/<slug>/poi/<int:poi_id>")

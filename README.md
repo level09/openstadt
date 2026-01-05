@@ -26,8 +26,10 @@ OpenStadt pulls real data from OpenStreetMap, assigns each facility to its neigh
 - Filter by facility type (playgrounds, schools, etc.)
 - Filter by neighborhood/district
 - Search for specific places
-- Click any marker to see details
+- Click any marker to see details (address, district, accessibility info)
+- City switcher to navigate between cities
 - "Near me" geolocation
+- Share POI links for specific locations
 
 ### Analytics Dashboard (`/city-name/analytics`)
 - **Summary cards**: Total facilities, districts, city average, underserved count
@@ -97,6 +99,8 @@ uv run flask load-city <yaml>                  # Load city from YAML config
 uv run flask list-cities                       # List all cities
 uv run flask sync-districts <city>             # Sync district boundaries from OSM
 uv run flask sync-osm <city> <layer>           # Sync facilities from OSM
+uv run flask sync-all                          # Load all city configs and sync all OSM data
+uv run flask sync-all -c <city>                # Sync all layers for a specific city
 uv run flask import-csv <city> <layer> <file>  # Import CSV data
 ```
 
@@ -145,6 +149,25 @@ openstadt/
 │   └── cities/       # City YAML configs
 ├── instance/         # SQLite database (gitignored)
 └── pyproject.toml
+```
+
+## Included Cities
+
+Pre-configured city configs are available in `config/cities/`:
+
+| City | Config File |
+|------|-------------|
+| Berlin | `berlin.yaml` |
+| Darmstadt | `darmstadt.yaml` |
+| Frankfurt am Main | `frankfurt.yaml` |
+| Hamburg | `hamburg.yaml` |
+| Köln | `koeln.yaml` |
+| Mannheim | `mannheim.yaml` |
+| München | `muenchen.yaml` |
+
+Load all cities at once:
+```bash
+uv run flask sync-all
 ```
 
 ## Sample Data (Mannheim)

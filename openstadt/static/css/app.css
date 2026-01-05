@@ -1,27 +1,185 @@
-/* OpenStadt - Civic Data Platform Styles */
+/* ============================================
+   OPENSTADT NEO-BRUTALIST DESIGN SYSTEM
+   German Civic Colors: Black, Red, Gold
+   ============================================ */
 
-/* Base */
+/* Design Tokens */
+:root {
+    /* German Civic Palette */
+    --os-black: #000000;
+    --os-white: #FFFFFF;
+    --os-red: #DD0000;
+    --os-gold: #FFCC00;
+    --os-cream: #FFF8E7;
+    --os-grey: #F5F5F5;
+    --os-dark-grey: #333333;
+
+    /* Functional */
+    --os-success: #22C55E;
+    --os-warning: #F59E0B;
+    --os-error: #EF4444;
+    --os-info: #3B82F6;
+
+    /* Brutalist Specs */
+    --os-border: 3px solid var(--os-black);
+    --os-border-thick: 4px solid var(--os-black);
+    --os-shadow: 6px 6px 0 var(--os-black);
+    --os-shadow-sm: 4px 4px 0 var(--os-black);
+    --os-radius: 0;
+
+    /* Typography */
+    --os-font-display: 'Space Grotesk', 'Roboto', sans-serif;
+    --os-font-mono: 'Space Mono', 'Roboto Mono', monospace;
+}
+
+/* Base Reset */
 * {
     box-sizing: border-box;
 }
 
 body {
     margin: 0;
-    font-family: 'Roboto', sans-serif;
+    font-family: var(--os-font-display), 'Roboto', sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
 }
 
-/* Map Layout */
+/* ============================================
+   BRUTALIST NAVBAR (shared across all pages)
+   ============================================ */
+
+.brutalist-navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 2000;
+    background: var(--os-gold);
+    border-bottom: var(--os-border-thick);
+    padding: 0 24px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.brutalist-navbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    text-decoration: none;
+    color: var(--os-black);
+}
+
+.brutalist-navbar-logo {
+    width: 40px;
+    height: 40px;
+    background: var(--os-black);
+    border: 2px solid var(--os-black);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.brutalist-navbar-logo .v-icon,
+.brutalist-navbar-logo .mdi,
+.brutalist-navbar-logo .ti {
+    color: var(--os-gold) !important;
+    font-size: 22px;
+}
+
+.brutalist-navbar-title {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+.brutalist-navbar-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.brutalist-nav-link {
+    padding: 10px 16px;
+    text-decoration: none;
+    color: var(--os-black);
+    font-weight: 700;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 2px solid transparent;
+    transition: all 0.1s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.brutalist-nav-link:hover {
+    background: var(--os-black);
+    color: var(--os-gold);
+}
+
+.brutalist-nav-link.btn-primary {
+    background: var(--os-black);
+    color: var(--os-white);
+    border: 2px solid var(--os-black);
+    box-shadow: var(--os-shadow-sm);
+}
+
+.brutalist-nav-link.btn-primary:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: var(--os-shadow);
+}
+
+/* City badge in navbar */
+.brutalist-city-badge {
+    background: var(--os-red);
+    color: var(--os-white);
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 2px solid var(--os-black);
+}
+
+/* Mobile nav toggle */
+.brutalist-nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+}
+
+@media (max-width: 768px) {
+    .brutalist-navbar-links {
+        display: none;
+    }
+    .brutalist-nav-toggle {
+        display: block;
+    }
+}
+
+/* ============================================
+   MAP LAYOUT STYLES
+   ============================================ */
+
 .map-page {
     height: 100vh;
     overflow: hidden;
+    padding-top: 64px; /* Account for fixed navbar */
 }
 
 .map-page .v-application {
-    height: 100vh;
+    height: calc(100vh - 64px);
 }
 
 .map-page .v-application__wrap {
-    min-height: 100vh;
+    min-height: calc(100vh - 64px);
 }
 
 .map-main {
@@ -41,69 +199,198 @@ body {
     z-index: 1;
 }
 
-/* Layer Panel */
+/* ============================================
+   BRUTALIST LAYER PANEL
+   ============================================ */
+
 .layer-panel {
     position: absolute;
-    top: 10px;
-    left: 10px;
+    top: 16px;
+    left: 16px;
     z-index: 1000;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    background: var(--os-white);
+    border: var(--os-border-thick);
+    box-shadow: var(--os-shadow);
     max-width: 280px;
-    transition: all 0.3s ease;
+    transition: all 0.2s ease;
 }
 
 .layer-panel.panel-collapsed {
-    max-width: 48px;
+    max-width: 52px;
 }
 
 .panel-header {
     display: flex;
     align-items: center;
-    padding: 12px;
+    padding: 14px 16px;
     cursor: pointer;
-    gap: 8px;
-    font-weight: 500;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: var(--os-gold);
+    border-bottom: var(--os-border);
+}
+
+.panel-header:hover {
+    background: var(--os-black);
+    color: var(--os-gold);
 }
 
 .panel-content {
-    padding: 0 12px 12px;
+    padding: 16px;
     max-height: 60vh;
     overflow-y: auto;
 }
 
 .layer-item {
-    margin-bottom: 4px;
+    margin-bottom: 8px;
 }
 
 .layer-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
+    width: 14px;
+    height: 14px;
+    border-radius: 0; /* Brutalist: no rounded corners */
+    border: 2px solid var(--os-black);
     display: inline-block;
-    margin-right: 8px;
+    margin-right: 10px;
     flex-shrink: 0;
 }
 
 .layer-name {
+    font-size: 15px;
+    font-weight: 700;
+    flex-grow: 1;
+}
+
+.layer-count {
+    background: var(--os-grey);
+    border: 2px solid var(--os-black);
+    padding: 2px 8px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-left: 8px;
+}
+
+/* Brutalist Layer Checkboxes */
+.layer-checkbox {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    padding: 8px 0;
+    user-select: none;
+}
+
+.layer-checkbox:hover {
+    background: var(--os-cream);
+    margin: 0 -16px;
+    padding: 8px 16px;
+}
+
+.layer-checkbox-input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.layer-checkbox-box {
+    width: 22px;
+    height: 22px;
+    border: 3px solid var(--os-black);
+    background: var(--os-white);
+    margin-right: 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s ease;
+}
+
+.layer-checkbox-input:checked + .layer-checkbox-box {
+    background: var(--layer-color, var(--os-black));
+}
+
+.layer-checkbox-input:checked + .layer-checkbox-box::after {
+    content: '✓';
+    color: var(--os-white);
+    font-weight: 900;
     font-size: 14px;
+    text-shadow: 0 0 2px var(--os-black);
+}
+
+.layer-checkbox:hover .layer-checkbox-box {
+    box-shadow: 2px 2px 0 var(--os-black);
+    transform: translate(-1px, -1px);
 }
 
 .poi-counter {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: #666;
-    padding-top: 8px;
-    border-top: 1px solid #eee;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--os-dark-grey);
+    padding-top: 12px;
+    margin-top: 12px;
+    border-top: var(--os-border);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-/* Search */
+/* ============================================
+   BRUTALIST CITY SWITCHER
+   ============================================ */
+
+.city-switcher {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 1001;
+}
+
+@media (min-width: 600px) {
+    .city-switcher {
+        left: 320px;
+    }
+}
+
+.city-select {
+    appearance: none;
+    -webkit-appearance: none;
+    background: var(--os-gold);
+    border: var(--os-border-thick);
+    padding: 10px 40px 10px 16px;
+    font-family: var(--os-font-display);
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: var(--os-shadow-sm);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    min-width: 160px;
+}
+
+.city-select:hover {
+    box-shadow: var(--os-shadow);
+    transform: translate(-2px, -2px);
+}
+
+.city-select:focus {
+    outline: none;
+    box-shadow: var(--os-shadow);
+}
+
+/* ============================================
+   BRUTALIST SEARCH
+   ============================================ */
+
 .search-container {
     position: absolute;
-    top: 10px;
+    top: 16px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
@@ -113,11 +400,21 @@ body {
 
 @media (min-width: 600px) {
     .search-container {
-        left: 320px;
+        left: 540px;
         transform: none;
         width: auto;
         min-width: 300px;
     }
+}
+
+.search-container .v-field {
+    border: var(--os-border-thick) !important;
+    border-radius: 0 !important;
+    box-shadow: var(--os-shadow-sm);
+}
+
+.search-container .v-field:focus-within {
+    box-shadow: var(--os-shadow);
 }
 
 .search-results {
@@ -128,25 +425,60 @@ body {
     max-height: 300px;
     overflow-y: auto;
     margin-top: 4px;
+    border: var(--os-border-thick);
+    box-shadow: var(--os-shadow);
 }
 
-/* Location Button */
-.location-btn {
-    position: absolute !important;
-    bottom: 100px;
-    right: 10px;
-    z-index: 1000;
-    background: white !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-}
+/* ============================================
+   BRUTALIST MAP BUTTONS
+   ============================================ */
 
-/* Analytics Button */
+.location-btn,
 .analytics-btn {
     position: absolute !important;
-    bottom: 150px;
-    right: 10px;
     z-index: 1000;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    border: var(--os-border-thick) !important;
+    border-radius: 0 !important;
+    box-shadow: var(--os-shadow-sm) !important;
+    background: var(--os-white) !important;
+}
+
+.location-btn:hover,
+.analytics-btn:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: var(--os-shadow) !important;
+}
+
+.location-btn {
+    bottom: 100px;
+    right: 16px;
+}
+
+.analytics-btn {
+    bottom: 160px;
+    right: 16px;
+    background: var(--os-red) !important;
+    color: var(--os-white) !important;
+}
+
+/* ============================================
+   BRUTALIST POI DRAWER
+   ============================================ */
+
+.poi-drawer {
+    position: fixed !important;
+    top: 64px !important;
+    height: calc(100vh - 64px) !important;
+    z-index: 1002 !important;
+    border-left: var(--os-border-thick) !important;
+}
+
+.poi-drawer .v-toolbar {
+    border-bottom: var(--os-border-thick);
+}
+
+.poi-drawer .v-navigation-drawer__content {
+    overflow-y: auto;
 }
 
 /* User Location Marker */
@@ -157,102 +489,260 @@ body {
 .user-location-marker .pulse {
     width: 20px;
     height: 20px;
-    background: #4285f4;
-    border: 3px solid white;
+    background: var(--os-red);
+    border: 3px solid var(--os-black);
     border-radius: 50%;
-    box-shadow: 0 0 0 rgba(66, 133, 244, 0.4);
+    box-shadow: 0 0 0 rgba(221, 0, 0, 0.4);
     animation: pulse 2s infinite;
 }
 
 @keyframes pulse {
     0% {
-        box-shadow: 0 0 0 0 rgba(66, 133, 244, 0.4);
+        box-shadow: 0 0 0 0 rgba(221, 0, 0, 0.4);
     }
     70% {
-        box-shadow: 0 0 0 20px rgba(66, 133, 244, 0);
+        box-shadow: 0 0 0 20px rgba(221, 0, 0, 0);
     }
     100% {
-        box-shadow: 0 0 0 0 rgba(66, 133, 244, 0);
+        box-shadow: 0 0 0 0 rgba(221, 0, 0, 0);
     }
 }
 
-/* Leaflet Cluster Customization */
+/* ============================================
+   LEAFLET CLUSTER CUSTOMIZATION (Brutalist)
+   ============================================ */
+
 .marker-cluster-small {
-    background-color: rgba(0, 102, 204, 0.6);
+    background-color: var(--os-cream);
+    border: 3px solid var(--os-black);
 }
 .marker-cluster-small div {
-    background-color: rgba(0, 102, 204, 0.8);
+    background-color: var(--os-gold);
+    border: 2px solid var(--os-black);
 }
 
 .marker-cluster-medium {
-    background-color: rgba(0, 102, 204, 0.7);
+    background-color: var(--os-gold);
+    border: 3px solid var(--os-black);
 }
 .marker-cluster-medium div {
-    background-color: rgba(0, 102, 204, 0.9);
+    background-color: var(--os-black);
 }
 
 .marker-cluster-large {
-    background-color: rgba(0, 102, 204, 0.8);
+    background-color: var(--os-red);
+    border: 3px solid var(--os-black);
 }
 .marker-cluster-large div {
-    background-color: rgba(0, 102, 204, 1);
+    background-color: var(--os-black);
 }
 
 .marker-cluster {
     background-clip: padding-box;
-    border-radius: 20px;
+    border-radius: 50%; /* Circles for better map readability */
 }
 
 .marker-cluster div {
-    width: 30px;
-    height: 30px;
-    margin-left: 5px;
-    margin-top: 5px;
+    width: 28px;
+    height: 28px;
+    margin-left: 6px;
+    margin-top: 6px;
     text-align: center;
-    border-radius: 15px;
-    font: 12px "Roboto", sans-serif;
-    color: white;
-    font-weight: bold;
-    line-height: 30px;
+    border-radius: 50%;
+    font: 13px var(--os-font-display), 'Roboto', sans-serif;
+    color: var(--os-black);
+    font-weight: 700;
+    line-height: 24px;
 }
 
-/* Dashboard Cards */
+.marker-cluster-small div {
+    color: var(--os-black);
+}
+
+.marker-cluster-medium div,
+.marker-cluster-large div {
+    color: var(--os-white);
+}
+
+/* ============================================
+   ANALYTICS PAGE STYLES
+   ============================================ */
+
+.analytics-page {
+    min-height: 100vh;
+    background: var(--os-cream);
+    padding-top: 64px; /* Account for fixed navbar */
+}
+
+/* Override map-page restrictions for analytics */
+body.map-page .analytics-page {
+    height: auto;
+    overflow: auto;
+}
+
+.analytics-page .v-application {
+    height: auto;
+}
+
+.analytics-page .v-application__wrap {
+    min-height: auto;
+}
+
+/* Analytics Header */
+.analytics-header {
+    background: var(--os-black);
+    border-bottom: var(--os-border-thick);
+    padding: 32px 24px;
+}
+
+.analytics-header h1 {
+    color: var(--os-white);
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.analytics-header p {
+    color: var(--os-gold);
+    margin: 8px 0 0;
+}
+
+/* Brutalist Stat Cards */
 .stat-card {
-    border-left: 4px solid;
+    background: var(--os-white);
+    border: var(--os-border-thick);
+    box-shadow: var(--os-shadow);
+    transition: transform 0.15s ease;
+}
+
+.stat-card:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: 9px 9px 0 var(--os-black);
 }
 
 .stat-card.primary {
-    border-left-color: #0066CC;
+    border-left: 6px solid var(--os-red);
 }
 
 .stat-card.success {
-    border-left-color: #388E3C;
+    border-left: 6px solid var(--os-success);
 }
 
 .stat-card.warning {
-    border-left-color: #F57C00;
+    border-left: 6px solid var(--os-warning);
 }
 
-/* Vuetify Overrides */
-.v-navigation-drawer--right {
-    z-index: 1001 !important;
+.stat-card.gold {
+    border-left: 6px solid var(--os-gold);
 }
 
-.poi-drawer {
-    position: fixed !important;
-    z-index: 1002 !important;
+/* Brutalist Data Table */
+.brutalist-table {
+    border: var(--os-border-thick);
+    box-shadow: var(--os-shadow);
+    overflow: hidden;
 }
 
-.poi-drawer .v-navigation-drawer__content {
-    overflow-y: auto;
+.brutalist-table th {
+    background: var(--os-black) !important;
+    color: var(--os-white) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 12px;
+    border-bottom: var(--os-border-thick) !important;
 }
 
-/* Responsive */
+.brutalist-table td {
+    border-bottom: 2px solid var(--os-black) !important;
+}
+
+.brutalist-table tr:hover td {
+    background: var(--os-gold) !important;
+}
+
+/* Equity bars in table */
+.equity-bar-inline {
+    height: 24px;
+    background: var(--os-grey);
+    border: 2px solid var(--os-black);
+    position: relative;
+}
+
+.equity-bar-inline .fill {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 6px;
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--os-white);
+}
+
+.equity-bar-inline .fill.danger { background: var(--os-red); }
+.equity-bar-inline .fill.warning { background: var(--os-warning); }
+.equity-bar-inline .fill.success { background: var(--os-success); }
+
+/* ============================================
+   BRUTALIST VUETIFY OVERRIDES
+   ============================================ */
+
+/* Cards */
+.v-card.brutalist {
+    border: var(--os-border-thick) !important;
+    border-radius: 0 !important;
+    box-shadow: var(--os-shadow) !important;
+}
+
+.v-card.brutalist:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: 9px 9px 0 var(--os-black) !important;
+}
+
+/* Buttons */
+.v-btn.brutalist {
+    border: var(--os-border-thick) !important;
+    border-radius: 0 !important;
+    box-shadow: var(--os-shadow-sm) !important;
+    text-transform: uppercase !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.5px !important;
+}
+
+.v-btn.brutalist:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: var(--os-shadow) !important;
+}
+
+/* Chips */
+.v-chip.brutalist {
+    border: 2px solid var(--os-black) !important;
+    border-radius: 0 !important;
+    font-weight: 600 !important;
+}
+
+/* Alerts */
+.v-alert.brutalist {
+    border: var(--os-border-thick) !important;
+    border-radius: 0 !important;
+    box-shadow: var(--os-shadow-sm) !important;
+}
+
+/* Navigation Drawer */
+.v-navigation-drawer.brutalist {
+    border-right: var(--os-border-thick) !important;
+}
+
+/* ============================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================ */
+
 @media (max-width: 599px) {
     .layer-panel {
         top: auto;
-        bottom: 10px;
-        left: 10px;
+        bottom: 16px;
+        left: 16px;
         right: auto;
         max-width: calc(100% - 80px);
     }
@@ -262,6 +752,32 @@ body {
     }
 
     .location-btn {
-        bottom: 10px;
+        bottom: 16px;
+    }
+
+    .analytics-btn {
+        bottom: 76px;
+    }
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+    .brutalist-navbar,
+    .layer-panel,
+    .search-container,
+    .location-btn,
+    .analytics-btn {
+        display: none !important;
+    }
+
+    .map-page {
+        padding-top: 0;
+    }
+
+    .analytics-page {
+        padding-top: 0;
     }
 }

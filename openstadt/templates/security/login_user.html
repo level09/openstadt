@@ -1,0 +1,106 @@
+{% extends "security/base.html" %}
+{% from "security/_macros.html" import render_field_with_errors, render_field, render_field_errors, render_form_errors, prop_next %}
+
+{% block title %}Anmelden - OpenStadt{% endblock %}
+
+{% block security_content %}
+<div class="auth-card">
+    <!-- Header -->
+    <div class="auth-header">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <div class="auth-logo">
+                <i class="ti ti-building"></i>
+            </div>
+            <div>
+                <h1 style="margin: 0; font-size: 24px; font-weight: 700;">Anmelden</h1>
+                <p style="margin: 4px 0 0; font-size: 14px; color: #333;">OpenStadt Administration</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Body -->
+    <div class="auth-body">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash-message flash-{{ category }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for_security('login') }}{{ prop_next() }}" method="post" name="login_user_form">
+            {{ login_user_form.hidden_tag() }}
+
+            {% if login_user_form.email and "email" in identity_attributes %}
+            <div class="form-group">
+                <label class="form-label" for="email">E-Mail</label>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    class="form-input"
+                    placeholder="name@example.com"
+                    required
+                    autofocus
+                >
+            </div>
+            {% endif %}
+
+            {% if login_user_form.username and "username" in identity_attributes %}
+            <div class="form-group">
+                <label class="form-label" for="username">Benutzername</label>
+                <input
+                    type="text"
+                    id="username"
+                    name="username"
+                    class="form-input"
+                    placeholder="Benutzername"
+                    required
+                >
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label class="form-label" for="password">Passwort</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    class="form-input"
+                    placeholder="Passwort eingeben"
+                    required
+                >
+            </div>
+
+            <div class="form-checkbox">
+                <input type="checkbox" id="remember" name="remember">
+                <label for="remember">Angemeldet bleiben</label>
+            </div>
+
+            <button type="submit" class="btn-submit">
+                <i class="ti ti-login"></i>
+                Anmelden
+            </button>
+        </form>
+    </div>
+
+    <!-- Footer -->
+    <div class="auth-footer">
+        <div style="display: flex; justify-content: space-between; font-size: 14px;">
+            {% if security.recoverable %}
+            <a href="{{ url_for_security('forgot_password') }}" class="auth-link">
+                Passwort vergessen?
+            </a>
+            {% else %}
+            <span></span>
+            {% endif %}
+            <a href="/" style="color: #333; font-weight: 600; text-decoration: none;">
+                <i class="ti ti-arrow-left"></i> Zurück
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
