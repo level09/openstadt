@@ -51,7 +51,5 @@ npm-debug.log*
 Thumbs.db
 
 # Project specific
-/config/cities/*.yaml
-!/config/cities/_template.yaml
-!/config/cities/mannheim.yaml
-!/config/cities/darmstadt.yaml
+# Allow all city configs
+!/config/cities/*.yaml

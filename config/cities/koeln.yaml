@@ -1,0 +1,57 @@
+# Köln City Configuration
+city:
+  slug: koeln
+  name: Köln
+  state: Nordrhein-Westfalen
+  center: [50.9375, 6.9603]
+  zoom: 12
+  bounds: [[50.83, 6.77], [51.09, 7.16]]
+
+theme:
+  primary_color: "#C62828"
+
+layers:
+  - slug: kitas
+    name: Kindergärten
+    icon: baby-carriage
+    color: "#E91E63"
+    visible: true
+    source:
+      type: osm
+      query: amenity=kindergarten
+
+  - slug: playgrounds
+    name: Spielplätze
+    icon: child
+    color: "#4CAF50"
+    visible: true
+    source:
+      type: osm
+      query: leisure=playground
+
+  - slug: schools
+    name: Schulen
+    icon: school
+    color: "#2196F3"
+    visible: true
+    source:
+      type: osm
+      query: amenity=school
+
+  - slug: recycling
+    name: Wertstoffcontainer
+    icon: recycle
+    color: "#795548"
+    visible: true
+    source:
+      type: osm
+      query: amenity=recycling
+
+  - slug: libraries
+    name: Bibliotheken
+    icon: book
+    color: "#9C27B0"
+    visible: false
+    source:
+      type: osm
+      query: amenity=library

@@ -1,0 +1,57 @@
+# Berlin City Configuration
+city:
+  slug: berlin
+  name: Berlin
+  state: Berlin
+  center: [52.5200, 13.4050]
+  zoom: 11
+  bounds: [[52.34, 13.08], [52.68, 13.77]]
+
+theme:
+  primary_color: "#DD0000"
+
+layers:
+  - slug: kitas
+    name: Kindergärten
+    icon: baby-carriage
+    color: "#E91E63"
+    visible: true
+    source:
+      type: osm
+      query: amenity=kindergarten
+
+  - slug: playgrounds
+    name: Spielplätze
+    icon: child
+    color: "#4CAF50"
+    visible: true
+    source:
+      type: osm
+      query: leisure=playground
+
+  - slug: schools
+    name: Schulen
+    icon: school
+    color: "#2196F3"
+    visible: true
+    source:
+      type: osm
+      query: amenity=school
+
+  - slug: recycling
+    name: Wertstoffcontainer
+    icon: recycle
+    color: "#795548"
+    visible: true
+    source:
+      type: osm
+      query: amenity=recycling
+
+  - slug: libraries
+    name: Bibliotheken
+    icon: book
+    color: "#9C27B0"
+    visible: false
+    source:
+      type: osm
+      query: amenity=library

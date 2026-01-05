@@ -1,0 +1,57 @@
+# München City Configuration
+city:
+  slug: muenchen
+  name: München
+  state: Bayern
+  center: [48.1351, 11.5820]
+  zoom: 12
+  bounds: [[48.06, 11.36], [48.25, 11.79]]
+
+theme:
+  primary_color: "#0066CC"
+
+layers:
+  - slug: kitas
+    name: Kindergärten
+    icon: baby-carriage
+    color: "#E91E63"
+    visible: true
+    source:
+      type: osm
+      query: amenity=kindergarten
+
+  - slug: playgrounds
+    name: Spielplätze
+    icon: child
+    color: "#4CAF50"
+    visible: true
+    source:
+      type: osm
+      query: leisure=playground
+
+  - slug: schools
+    name: Schulen
+    icon: school
+    color: "#2196F3"
+    visible: true
+    source:
+      type: osm
+      query: amenity=school
+
+  - slug: recycling
+    name: Wertstoffcontainer
+    icon: recycle
+    color: "#795548"
+    visible: true
+    source:
+      type: osm
+      query: amenity=recycling
+
+  - slug: libraries
+    name: Bibliotheken
+    icon: book
+    color: "#9C27B0"
+    visible: false
+    source:
+      type: osm
+      query: amenity=library
