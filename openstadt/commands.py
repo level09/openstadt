@@ -558,9 +558,10 @@ def sync_districts(city_slug):
         # Calculate approximate area (rough estimate)
         area_km2 = _calculate_polygon_area(outer_coords)
 
-        # Create slug from name
+        # Create slug from name (max 50 chars for DB column)
         slug = name.lower().replace(" ", "-").replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
         slug = "".join(c for c in slug if c.isalnum() or c == "-")
+        slug = slug[:50]  # Truncate to fit DB column
 
         # Create or update district
         district = db.session.scalars(
