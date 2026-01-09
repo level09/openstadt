@@ -229,17 +229,25 @@ def districts_geojson(slug):
 @api.route("/cities/<slug>/analytics/districts", methods=["GET"])
 def district_analytics(slug):
     """Get POI statistics per district for equity analysis."""
+    from sqlalchemy import func
+
     city = db.session.scalars(db.select(City).where(City.slug == slug)).first()
     if not city:
         return jsonify({"error": "City not found"}), 404
 
     # Get all layers for this city
     layers = {layer.id: layer for layer in city.layers}
+    layer_slugs = {layer.id: layer.slug for layer in city.layers}
 
-    # Get POI counts per district per layer
-    district_stats = {}
+    # Get POI counts per district per layer using SQL GROUP BY (fast!)
+    counts = db.session.execute(
+        db.select(POI.district, POI.layer_id, func.count(POI.id))
+        .where(POI.city_id == city.id)
+        .group_by(POI.district, POI.layer_id)
+    ).all()
 
     # Initialize with districts from database
+    district_stats = {}
     for district in city.districts:
         district_stats[district.name] = {
             "name": district.name,
@@ -250,9 +258,9 @@ def district_analytics(slug):
             "total": 0,
         }
 
-    # Also track districts from POI data (may not have geometry yet)
-    for poi in city.pois:
-        district_name = poi.district or "Unbekannt"
+    # Aggregate counts from SQL results
+    for district_name, layer_id, count in counts:
+        district_name = district_name or "Unbekannt"
         if district_name not in district_stats:
             district_stats[district_name] = {
                 "name": district_name,
@@ -263,10 +271,10 @@ def district_analytics(slug):
                 "total": 0,
             }
 
-        layer = layers.get(poi.layer_id)
-        if layer:
-            district_stats[district_name]["layers"][layer.slug] += 1
-            district_stats[district_name]["total"] += 1
+        layer_slug = layer_slugs.get(layer_id)
+        if layer_slug:
+            district_stats[district_name]["layers"][layer_slug] += count
+            district_stats[district_name]["total"] += count
 
     # Calculate density and equity scores
     results = []
