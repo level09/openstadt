@@ -42,6 +42,9 @@ class Config:
     _default_db = f"sqlite:///{os.path.join(PROJECT_ROOT, 'instance', 'openstadt.db')}"
     SQLALCHEMY_DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI", _default_db)
     SQLALCHEMY_TRACK_MODIFICATIONS = True
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,  # Auto-check/refresh stale connections
+    }
 
     # Celery
     CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL") if REDIS_AVAILABLE else None
