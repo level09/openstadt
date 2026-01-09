@@ -182,8 +182,12 @@ class POI(db.Model, BaseMixin):
     city = db.relationship("City", back_populates="pois")
     layer = db.relationship("Layer", back_populates="pois")
 
-    # Index for spatial queries (approximate)
-    __table_args__ = (db.Index("idx_poi_location", "lat", "lng"),)
+    # Indexes for common queries
+    __table_args__ = (
+        db.Index("idx_poi_location", "lat", "lng"),
+        db.Index("ix_poi_city_id", "city_id"),
+        db.Index("ix_poi_city_district_layer", "city_id", "district", "layer_id"),
+    )
 
     def to_dict(self, include_layer=False):
         result = {
