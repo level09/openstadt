@@ -609,7 +609,7 @@ def _calculate_polygon_area(coords):
 @with_appcontext
 def assign_districts(city_slug):
     """Assign POIs to districts based on their location (point-in-polygon)."""
-    from openstadt.api.models import City, District, POI
+    from openstadt.api.models import City, District
 
     city = db.session.scalars(db.select(City).where(City.slug == city_slug)).first()
     if not city:
@@ -624,18 +624,61 @@ def assign_districts(city_slug):
         console.print(f"[red]No districts with geometry found. Run sync-districts first.[/red]")
         return
 
-    console.print(f"[yellow]Assigning {len(city.pois)} POIs to {len(districts)} districts...[/yellow]")
+    assigned, nearest_assigned = _assign_districts_internal(city.pois, districts)
+    db.session.commit()
 
+    console.print(f"[green]Assigned {assigned} POIs to districts ({nearest_assigned} via nearest-district fallback).[/green]")
+
+
+def _assign_districts_internal(pois, districts):
+    """Internal: Assign POIs to districts. Returns (assigned_count, nearest_fallback_count)."""
     assigned = 0
-    for poi in city.pois:
+    nearest_assigned = 0
+
+    for poi in pois:
+        found = False
         for district in districts:
             if _point_in_polygon(poi.lng, poi.lat, district.geometry):
                 poi.district = district.name
                 assigned += 1
+                found = True
                 break
 
-    db.session.commit()
-    console.print(f"[green]Assigned {assigned} POIs to districts.[/green]")
+        # Fallback: find nearest district if point-in-polygon failed
+        if not found:
+            nearest = _find_nearest_district(poi.lng, poi.lat, districts)
+            if nearest:
+                poi.district = nearest.name
+                assigned += 1
+                nearest_assigned += 1
+
+    return assigned, nearest_assigned
+
+
+def _find_nearest_district(x, y, districts):
+    """Find the nearest district to a point based on centroid distance."""
+    import math
+
+    min_dist = float('inf')
+    nearest = None
+
+    for district in districts:
+        if not district.geometry:
+            continue
+        coords = district.geometry.get("coordinates", [[]])[0]
+        if not coords:
+            continue
+
+        # Calculate centroid
+        cx = sum(c[0] for c in coords) / len(coords)
+        cy = sum(c[1] for c in coords) / len(coords)
+
+        dist = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+        if dist < min_dist:
+            min_dist = dist
+            nearest = district
+
+    return nearest
 
 
 def _point_in_polygon(x, y, geometry):
@@ -660,6 +703,55 @@ def _point_in_polygon(x, y, geometry):
         j = i
 
     return inside
+
+
+@click.command("check-data")
+@click.argument("city_slug")
+@with_appcontext
+def check_data(city_slug):
+    """Check data quality and report issues for a city."""
+    from collections import Counter
+    from openstadt.api.models import City, District
+
+    city = db.session.scalars(db.select(City).where(City.slug == city_slug)).first()
+    if not city:
+        console.print(f"[red]City '{city_slug}' not found.[/red]")
+        return
+
+    total_pois = len(city.pois)
+    if total_pois == 0:
+        console.print(f"[yellow]No POIs found for {city.name}.[/yellow]")
+        return
+
+    unassigned = len([p for p in city.pois if not p.district])
+    no_name = len([p for p in city.pois if p.layer and p.name.startswith(p.layer.name + " #")])
+
+    console.print(f"\n[bold]Data Quality Report for {city.name}[/bold]")
+    console.print(f"Total POIs: {total_pois}")
+    console.print(f"Unassigned to district: {unassigned} ({unassigned/total_pois*100:.1f}%)")
+    console.print(f"POIs with generic names: {no_name} ({no_name/total_pois*100:.1f}%)")
+
+    # District distribution
+    console.print("\n[bold]District Distribution:[/bold]")
+    district_counts = Counter(p.district or "Unbekannt" for p in city.pois)
+    for district, count in district_counts.most_common(15):
+        pct = count / total_pois * 100
+        console.print(f"  {district}: {count} ({pct:.1f}%)")
+
+    # Layer distribution
+    console.print("\n[bold]Layer Distribution:[/bold]")
+    layer_counts = Counter(p.layer.name if p.layer else "Unknown" for p in city.pois)
+    for layer, count in layer_counts.most_common():
+        pct = count / total_pois * 100
+        console.print(f"  {layer}: {count} ({pct:.1f}%)")
+
+    # Districts without geometry
+    districts = db.session.scalars(
+        db.select(District).where(District.city_id == city.id)
+    ).all()
+    no_geometry = len([d for d in districts if not d.geometry])
+    if no_geometry:
+        console.print(f"\n[yellow]Districts without geometry: {no_geometry}[/yellow]")
 
 
 @click.command("sync-all")
@@ -734,6 +826,20 @@ def sync_all(city, skip_load):
                 console.print(f"[green]✓ {layer.name}: {count} POIs[/green]")
             else:
                 console.print(f"[red]✗ {layer.name}: sync failed[/red]")
+
+        # Step 3: Auto-assign districts if available
+        from openstadt.api.models import District
+        districts = db.session.scalars(
+            db.select(District).where(District.city_id == city_obj.id, District.geometry.isnot(None))
+        ).all()
+
+        if districts:
+            console.print(f"\n[yellow]Assigning POIs to districts...[/yellow]")
+            assigned, nearest = _assign_districts_internal(city_obj.pois, districts)
+            db.session.commit()
+            console.print(f"[green]✓ Assigned {assigned} POIs ({nearest} via fallback)[/green]")
+        else:
+            console.print(f"\n[yellow]No districts found - run sync-districts first[/yellow]")
 
         console.print()
 
