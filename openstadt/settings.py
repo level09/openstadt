@@ -44,6 +44,7 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = True
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_pre_ping": True,  # Auto-check/refresh stale connections
+        "pool_recycle": 300,  # Recycle connections every 5 minutes
     }
 
     # Celery
