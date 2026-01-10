@@ -391,27 +391,40 @@ def coverage_analysis(slug):
 @api.route("/cities/<slug>/analytics/comparison", methods=["GET"])
 def layer_comparison(slug):
     """Compare infrastructure across all layers."""
+    from sqlalchemy import func
+
     city = db.session.scalars(db.select(City).where(City.slug == slug)).first()
     if not city:
         return jsonify({"error": "City not found"}), 404
 
-    comparison = []
-    for layer in city.layers:
-        poi_count = len(layer.pois)
+    # Get POI counts per layer per district using SQL GROUP BY (fast!)
+    counts = db.session.execute(
+        db.select(POI.layer_id, POI.district, func.count(POI.id))
+        .where(POI.city_id == city.id)
+        .group_by(POI.layer_id, POI.district)
+    ).all()
 
-        # Get district distribution
-        district_counts = {}
-        for poi in layer.pois:
-            d = poi.district or "Unbekannt"
-            district_counts[d] = district_counts.get(d, 0) + 1
+    # Build layer stats from SQL results
+    layer_data = {layer.id: {"layer": layer, "districts": {}} for layer in city.layers}
+
+    for layer_id, district, count in counts:
+        if layer_id in layer_data:
+            d = district or "Unbekannt"
+            layer_data[layer_id]["districts"][d] = count
+
+    comparison = []
+    for layer_id, data in layer_data.items():
+        layer = data["layer"]
+        district_counts = data["districts"]
+        poi_count = sum(district_counts.values())
 
         # Calculate distribution stats
         if district_counts:
-            counts = list(district_counts.values())
-            avg = sum(counts) / len(counts)
-            max_count = max(counts)
-            min_count = min(counts)
-            spread = max_count - min_count if counts else 0
+            counts_list = list(district_counts.values())
+            avg = sum(counts_list) / len(counts_list)
+            max_count = max(counts_list)
+            min_count = min(counts_list)
+            spread = max_count - min_count
         else:
             avg = max_count = min_count = spread = 0
 
