@@ -5,7 +5,6 @@ import string
 from pathlib import Path
 
 import click
-from flask import current_app
 from flask.cli import with_appcontext
 from flask_security.utils import hash_password
 from rich.console import Console
@@ -64,7 +63,7 @@ def install():
     db.session.commit()
 
     console.print("\n[bold green]Admin user created:[/bold green]")
-    console.print(f"  Email: [cyan]admin@openstadt.de[/cyan]")
+    console.print("  Email: [cyan]admin@openstadt.de[/cyan]")
     console.print(f"  Password: [cyan]{password}[/cyan]")
     console.print("\n[yellow]Please save this password - it won't be shown again.[/yellow]")
 
@@ -127,70 +126,18 @@ def load_city(config_file):
     """Load a city from a YAML config file."""
     import yaml
 
-    from openstadt.api.models import City, Layer
-
     with open(config_file) as f:
         config = yaml.safe_load(f)
 
-    city_data = config.get("city", {})
-    slug = city_data.get("slug")
-
-    if not slug:
+    if not config.get("city", {}).get("slug"):
         console.print("[red]Config must include city.slug[/red]")
         return
 
-    # Create or update city
-    city = db.session.scalars(db.select(City).where(City.slug == slug)).first()
-    if not city:
-        city = City(slug=slug)
-
-    city.name = city_data.get("name", slug.title())
-    city.state = city_data.get("state")
-    center = city_data.get("center", [49.4875, 8.4660])
-    city.center_lat = center[0]
-    city.center_lng = center[1]
-    city.default_zoom = city_data.get("zoom", 12)
-    city.bounds = city_data.get("bounds")
-
-    # Theme
-    theme = config.get("theme", {})
-    city.primary_color = theme.get("primary_color", "#0066CC")
-    city.logo_url = theme.get("logo")
-
-    city.config = config
-
-    db.session.add(city)
-    db.session.flush()  # Get city.id
-
-    # Create layers
-    for layer_data in config.get("layers", []):
-        layer_slug = layer_data.get("slug")
-        if not layer_slug:
-            continue
-
-        layer = db.session.scalars(
-            db.select(Layer).where(Layer.city_id == city.id, Layer.slug == layer_slug)
-        ).first()
-        if not layer:
-            layer = Layer(city_id=city.id, slug=layer_slug)
-
-        layer.name = layer_data.get("name", layer_slug.title())
-        layer.name_de = layer_data.get("name_de")
-        layer.icon = layer_data.get("icon", "map-marker")
-        layer.color = layer_data.get("color", "#3388ff")
-        layer.visible_by_default = layer_data.get("visible", True)
-
-        source = layer_data.get("source", {})
-        layer.source_type = source.get("type")
-        layer.source_url = source.get("url")
-        layer.source_config = source.get("mapping") or source.get("query")
-
-        layer.schema = layer_data.get("attributes")
-
-        db.session.add(layer)
-
-    db.session.commit()
-    console.print(f"[green]City '{city.name}' loaded with {len(config.get('layers', []))} layers.[/green]")
+    city, layer_count = _load_city_config(config)
+    if city:
+        console.print(f"[green]City '{city.name}' loaded with {layer_count} layers.[/green]")
+    else:
+        console.print("[red]Failed to load city.[/red]")
 
 
 @click.command("list-cities")
@@ -226,7 +173,7 @@ def import_csv(city_slug, layer_slug, csv_file, name_col, lat_col, lng_col, addr
     """Import POIs from a CSV file."""
     import csv
 
-    from openstadt.api.models import City, Layer, POI
+    from openstadt.api.models import POI, City, Layer
 
     city = db.session.scalars(db.select(City).where(City.slug == city_slug)).first()
     if not city:
@@ -282,9 +229,7 @@ def import_csv(city_slug, layer_slug, csv_file, name_col, lat_col, lng_col, addr
 @with_appcontext
 def sync_osm(city_slug, layer_slug):
     """Sync POIs from OpenStreetMap Overpass API."""
-    import httpx
-
-    from openstadt.api.models import City, Layer, POI
+    from openstadt.api.models import City, Layer
 
     city = db.session.scalars(db.select(City).where(City.slug == city_slug)).first()
     if not city:
@@ -302,126 +247,17 @@ def sync_osm(city_slug, layer_slug):
         console.print(f"[red]Layer '{layer_slug}' is not an OSM layer.[/red]")
         return
 
-    osm_query = layer.source_config
-    if not osm_query:
-        console.print(f"[red]No OSM query configured for layer.[/red]")
+    if not layer.source_config:
+        console.print("[red]No OSM query configured for layer.[/red]")
         return
 
-    # Build Overpass query
-    bounds = city.bounds or [
-        [city.center_lat - 0.1, city.center_lng - 0.1],
-        [city.center_lat + 0.1, city.center_lng + 0.1],
-    ]
-    bbox = f"{bounds[0][0]},{bounds[0][1]},{bounds[1][0]},{bounds[1][1]}"
+    console.print(f"[yellow]Syncing {layer.name} from Overpass API...[/yellow]")
+    count = _sync_osm_layer(city, layer)
 
-    query = f"""
-    [out:json][timeout:60];
-    (
-      node[{osm_query}]({bbox});
-      way[{osm_query}]({bbox});
-    );
-    out center;
-    """
-
-    console.print(f"[yellow]Fetching from Overpass API...[/yellow]")
-
-    # Try multiple Overpass API endpoints
-    endpoints = [
-        "https://overpass.kumi.systems/api/interpreter",
-        "https://overpass-api.de/api/interpreter",
-    ]
-    response = None
-    for endpoint in endpoints:
-        try:
-            console.print(f"[yellow]Trying {endpoint}...[/yellow]")
-            response = httpx.post(
-                endpoint,
-                data={"data": query},
-                timeout=90,
-            )
-            response.raise_for_status()
-            break
-        except Exception as e:
-            console.print(f"[red]Failed: {e}[/red]")
-            continue
-
-    if not response:
-        console.print("[red]All Overpass endpoints failed.[/red]")
-        return
-
-    try:
-        response.raise_for_status()
-        data = response.json()
-    except Exception as e:
-        console.print(f"[red]Error fetching OSM data: {e}[/red]")
-        return
-
-    # Clear existing POIs for this layer (full sync)
-    db.session.execute(db.delete(POI).where(POI.layer_id == layer.id))
-
-    count = 0
-    for element in data.get("elements", []):
-        if element["type"] == "node":
-            lat, lng = element["lat"], element["lon"]
-        elif "center" in element:
-            lat, lng = element["center"]["lat"], element["center"]["lon"]
-        else:
-            continue
-
-        tags = element.get("tags", {})
-
-        # Generate meaningful name from OSM tags
-        name = tags.get("name")
-        if not name:
-            name = tags.get("operator")
-        if not name:
-            # Try to build name from type tags
-            if tags.get("amenity") == "recycling":
-                recycling_types = [k.split(":")[1] for k in tags.keys() if k.startswith("recycling:") and tags[k] == "yes"]
-                if recycling_types:
-                    name = f"Recycling: {', '.join(recycling_types[:3])}"
-                else:
-                    name = "Recyclingcontainer"
-            elif tags.get("leisure") == "playground":
-                name = tags.get("description", "Spielplatz")
-            elif tags.get("amenity") == "kindergarten":
-                name = "Kindergarten"
-            elif tags.get("amenity") == "school":
-                name = tags.get("school:type", "Schule")
-            elif tags.get("natural") == "tree":
-                species = tags.get("species:de") or tags.get("species") or tags.get("genus:de") or tags.get("genus")
-                name = species if species else "Baum"
-            else:
-                # Fallback: use layer name + address or ID
-                addr = tags.get("addr:street", "")
-                if addr:
-                    name = f"{layer.name} - {addr}"
-                else:
-                    name = f"{layer.name} #{count + 1}"
-
-        # Build address only if we have street info
-        street = tags.get("addr:street", "")
-        housenumber = tags.get("addr:housenumber", "")
-        address = f"{street} {housenumber}".strip() if street else None
-
-        poi = POI(
-            city_id=city.id,
-            layer_id=layer.id,
-            name=name,
-            lat=lat,
-            lng=lng,
-            address=address,
-            source_id=str(element["id"]),
-            attributes={k: v for k, v in tags.items() if k not in ("name", "addr:street", "addr:housenumber")},
-        )
-        db.session.add(poi)
-        count += 1
-
-    from datetime import datetime
-    layer.last_sync = datetime.now()
-    db.session.commit()
-
-    console.print(f"[green]Synced {count} POIs from OpenStreetMap.[/green]")
+    if count >= 0:
+        console.print(f"[green]Synced {count} POIs from OpenStreetMap.[/green]")
+    else:
+        console.print("[red]Sync failed. Check Overpass API availability.[/red]")
 
 
 @click.command("sync-districts")
@@ -481,7 +317,7 @@ def sync_districts(city_slug):
         """
         console.print(f"[yellow]Warning: No OSM relation ID for {city_slug}, using bbox (may include surrounding areas)[/yellow]")
 
-    console.print(f"[yellow]Fetching district boundaries from Overpass API...[/yellow]")
+    console.print("[yellow]Fetching district boundaries from Overpass API...[/yellow]")
 
     endpoints = [
         "https://overpass.kumi.systems/api/interpreter",
@@ -519,7 +355,7 @@ def sync_districts(city_slug):
     relations = [e for e in elements if e["type"] == "relation"]
 
     # Clear existing districts for this city (full sync)
-    console.print(f"[yellow]Clearing existing districts...[/yellow]")
+    console.print("[yellow]Clearing existing districts...[/yellow]")
     db.session.execute(db.delete(District).where(District.city_id == city.id))
 
     # Also clear district assignments on POIs
@@ -621,7 +457,7 @@ def assign_districts(city_slug):
     ).all()
 
     if not districts:
-        console.print(f"[red]No districts with geometry found. Run sync-districts first.[/red]")
+        console.print("[red]No districts with geometry found. Run sync-districts first.[/red]")
         return
 
     assigned, nearest_assigned = _assign_districts_internal(city.pois, districts)
@@ -711,6 +547,7 @@ def _point_in_polygon(x, y, geometry):
 def check_data(city_slug):
     """Check data quality and report issues for a city."""
     from collections import Counter
+
     from openstadt.api.models import City, District
 
     city = db.session.scalars(db.select(City).where(City.slug == city_slug)).first()
@@ -768,8 +605,8 @@ def sync_all(city, skip_load):
         flask sync-all --skip-load      # Skip config loading, just sync OSM
     """
     import yaml
-    from openstadt.api.models import City, Layer, POI
-    import httpx
+
+    from openstadt.api.models import City, Layer
 
     config_dir = Path("config/cities")
     if not config_dir.exists():
@@ -805,14 +642,14 @@ def sync_all(city, skip_load):
 
         # Step 1: Load city config
         if not skip_load:
-            console.print(f"\n[yellow]Loading config...[/yellow]")
+            console.print("\n[yellow]Loading config...[/yellow]")
             _load_city_config(config)
-            console.print(f"[green]✓ City config loaded[/green]")
+            console.print("[green]✓ City config loaded[/green]")
 
         # Step 2: Sync OSM layers
         city_obj = db.session.scalars(db.select(City).where(City.slug == slug)).first()
         if not city_obj:
-            console.print(f"[red]City not found in database[/red]")
+            console.print("[red]City not found in database[/red]")
             continue
 
         layers = db.session.scalars(
@@ -834,12 +671,12 @@ def sync_all(city, skip_load):
         ).all()
 
         if districts:
-            console.print(f"\n[yellow]Assigning POIs to districts...[/yellow]")
+            console.print("\n[yellow]Assigning POIs to districts...[/yellow]")
             assigned, nearest = _assign_districts_internal(city_obj.pois, districts)
             db.session.commit()
             console.print(f"[green]✓ Assigned {assigned} POIs ({nearest} via fallback)[/green]")
         else:
-            console.print(f"\n[yellow]No districts found - run sync-districts first[/yellow]")
+            console.print("\n[yellow]No districts found - run sync-districts first[/yellow]")
 
         console.print()
 
@@ -847,11 +684,13 @@ def sync_all(city, skip_load):
 
 
 def _load_city_config(config):
-    """Internal: Load city from config dict."""
+    """Internal: Load city from config dict. Returns (city, layer_count)."""
     from openstadt.api.models import City, Layer
 
     city_data = config.get("city", {})
     slug = city_data.get("slug")
+    if not slug:
+        return None, 0
 
     city = db.session.scalars(db.select(City).where(City.slug == slug)).first()
     if not city:
@@ -873,6 +712,7 @@ def _load_city_config(config):
     db.session.add(city)
     db.session.flush()
 
+    layer_count = 0
     for layer_data in config.get("layers", []):
         layer_slug = layer_data.get("slug")
         if not layer_slug:
@@ -897,13 +737,16 @@ def _load_city_config(config):
         layer.schema = layer_data.get("attributes")
 
         db.session.add(layer)
+        layer_count += 1
 
     db.session.commit()
+    return city, layer_count
 
 
 def _sync_osm_layer(city, layer):
     """Internal: Sync a single OSM layer. Returns POI count or -1 on error."""
     import httpx
+
     from openstadt.api.models import POI
 
     osm_query = layer.source_config
@@ -972,8 +815,15 @@ def _sync_osm_layer(city, layer):
                 name = "Kindergarten"
             elif tags.get("amenity") == "school":
                 name = tags.get("school:type", "Schule")
+            elif tags.get("natural") == "tree":
+                species = tags.get("species:de") or tags.get("species") or tags.get("genus:de") or tags.get("genus")
+                name = species if species else "Baum"
             else:
-                name = f"{layer.name} #{count + 1}"
+                street = tags.get("addr:street", "")
+                if street:
+                    name = f"{layer.name} - {street}"
+                else:
+                    name = f"{layer.name} #{count + 1}"
 
         street = tags.get("addr:street", "")
         housenumber = tags.get("addr:housenumber", "")
