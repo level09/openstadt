@@ -1,6 +1,9 @@
 """Public API endpoints for OpenStadt."""
 
+import math
+
 from flask import Blueprint, jsonify, request
+from sqlalchemy import func
 
 from openstadt.api.models import City, District, Layer, POI
 from openstadt.extensions import db
@@ -229,8 +232,6 @@ def districts_geojson(slug):
 @api.route("/cities/<slug>/analytics/districts", methods=["GET"])
 def district_analytics(slug):
     """Get POI statistics per district for equity analysis."""
-    from sqlalchemy import func
-
     city = db.session.scalars(db.select(City).where(City.slug == slug)).first()
     if not city:
         return jsonify({"error": "City not found"}), 404
@@ -315,8 +316,6 @@ def district_analytics(slug):
 @api.route("/cities/<slug>/analytics/coverage", methods=["GET"])
 def coverage_analysis(slug):
     """Analyze coverage gaps - areas far from facilities."""
-    import math
-
     city = db.session.scalars(db.select(City).where(City.slug == slug)).first()
     if not city:
         return jsonify({"error": "City not found"}), 404
@@ -391,8 +390,6 @@ def coverage_analysis(slug):
 @api.route("/cities/<slug>/analytics/comparison", methods=["GET"])
 def layer_comparison(slug):
     """Compare infrastructure across all layers."""
-    from sqlalchemy import func
-
     city = db.session.scalars(db.select(City).where(City.slug == slug)).first()
     if not city:
         return jsonify({"error": "City not found"}), 404
@@ -445,8 +442,6 @@ def layer_comparison(slug):
 
 def _haversine_distance(lat1, lng1, lat2, lng2):
     """Calculate distance between two points in meters."""
-    import math
-
     R = 6371000  # Earth radius in meters
     phi1 = math.radians(lat1)
     phi2 = math.radians(lat2)

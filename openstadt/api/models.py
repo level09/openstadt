@@ -1,13 +1,11 @@
 """Core civic data models for OpenStadt."""
 
-import dataclasses
 from datetime import datetime
 
 from openstadt.extensions import db
 from openstadt.utils.base import BaseMixin
 
 
-@dataclasses.dataclass
 class City(db.Model, BaseMixin):
     """A city/municipality that has its own civic data."""
 
@@ -60,22 +58,7 @@ class City(db.Model, BaseMixin):
             result["layers"] = [layer.to_dict(include_stats=True) for layer in self.layers]
         return result
 
-    def from_dict(self, data):
-        self.slug = data.get("slug", self.slug)
-        self.name = data.get("name", self.name)
-        self.state = data.get("state", self.state)
-        if "center" in data:
-            self.center_lat = data["center"][0]
-            self.center_lng = data["center"][1]
-        self.default_zoom = data.get("defaultZoom", self.default_zoom)
-        self.bounds = data.get("bounds", self.bounds)
-        self.primary_color = data.get("primaryColor", self.primary_color)
-        self.logo_url = data.get("logoUrl", self.logo_url)
-        self.config = data.get("config", self.config)
-        return self
 
-
-@dataclasses.dataclass
 class Layer(db.Model, BaseMixin):
     """A layer of POIs (e.g., kitas, playgrounds, trees)."""
 
@@ -134,21 +117,7 @@ class Layer(db.Model, BaseMixin):
             result["poiCount"] = len(self.pois)
         return result
 
-    def from_dict(self, data):
-        self.slug = data.get("slug", self.slug)
-        self.name = data.get("name", self.name)
-        self.name_de = data.get("nameDe", self.name_de)
-        self.icon = data.get("icon", self.icon)
-        self.color = data.get("color", self.color)
-        self.visible_by_default = data.get("visibleByDefault", self.visible_by_default)
-        self.source_type = data.get("sourceType", self.source_type)
-        self.source_url = data.get("sourceUrl", self.source_url)
-        self.source_config = data.get("sourceConfig", self.source_config)
-        self.schema = data.get("schema", self.schema)
-        return self
 
-
-@dataclasses.dataclass
 class POI(db.Model, BaseMixin):
     """A Point of Interest (civic facility, tree, etc.)."""
 
@@ -228,19 +197,7 @@ class POI(db.Model, BaseMixin):
             },
         }
 
-    def from_dict(self, data):
-        self.name = data.get("name", self.name)
-        self.lat = data.get("lat", self.lat)
-        self.lng = data.get("lng", self.lng)
-        self.address = data.get("address", self.address)
-        self.district = data.get("district", self.district)
-        self.attributes = data.get("attributes", self.attributes)
-        self.source_id = data.get("sourceId", self.source_id)
-        self.source_url = data.get("sourceUrl", self.source_url)
-        return self
 
-
-@dataclasses.dataclass
 class District(db.Model, BaseMixin):
     """Administrative district/neighborhood within a city."""
 
@@ -265,7 +222,7 @@ class District(db.Model, BaseMixin):
         db.UniqueConstraint("city_id", "slug", name="uq_district_city_slug"),
     )
 
-    def to_dict(self, include_geometry=False, include_stats=False):
+    def to_dict(self, include_geometry=False):
         result = {
             "id": self.id,
             "cityId": self.city_id,

@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 
 REDIS_AVAILABLE = importlib.util.find_spec("redis") is not None
 
-os_env = os.environ
 load_dotenv()
 
 # Session configuration
@@ -41,7 +40,6 @@ class Config:
     # Database - PostGIS for production, SQLite for quick start
     _default_db = f"sqlite:///{os.path.join(PROJECT_ROOT, 'instance', 'openstadt.db')}"
     SQLALCHEMY_DATABASE_URI = os.environ.get("SQLALCHEMY_DATABASE_URI", _default_db)
-    SQLALCHEMY_TRACK_MODIFICATIONS = True
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_pre_ping": True,  # Auto-check/refresh stale connections
         "pool_recycle": 300,  # Recycle connections every 5 minutes
